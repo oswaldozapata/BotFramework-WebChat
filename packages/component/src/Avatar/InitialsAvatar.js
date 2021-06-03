@@ -1,32 +1,36 @@
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import useAvatarForBot from '../hooks/useAvatarForBot';
-import useAvatarForUser from '../hooks/useAvatarForUser';
 import useStyleSet from '../hooks/useStyleSet';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 
-const ROOT_CSS = css({
+const { useAvatarForBot, useAvatarForUser } = hooks;
+
+const ROOT_STYLE = {
   alignItems: 'center',
   display: 'flex',
 
   '& .webchat__initialsAvatar__initials': {
     justifyContent: 'center'
   }
-});
+};
 
 const InitialsAvatar = ({ fromUser }) => {
   const [{ initials: avatarInitialsForBot }] = useAvatarForBot();
   const [{ initials: avatarInitialsForUser }] = useAvatarForUser();
   const [{ initialsAvatar: initialsAvatarStyleSet }] = useStyleSet();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
 
   return (
     <div
       className={classNames(
-        ROOT_CSS + '',
         'webchat__initialsAvatar',
-        fromUser && 'webchat__initialsAvatar--fromUser',
+        {
+          'webchat__initialsAvatar--fromUser': fromUser
+        },
+        rootClassName,
         initialsAvatarStyleSet + ''
       )}
     >

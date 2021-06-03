@@ -2,9 +2,9 @@
 
 > For Cognitive Services Speech Services, please refer to [`SPEECH.md`](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/SPEECH.md).
 
-This guide is for integrating Direct Line Speech.
+This guide is for using Web Chat with chat and speech functionality provided by the [Direct Line Speech protocol](https://docs.microsoft.com/en-us/azure/cognitive-services/Speech-Service/direct-line-speech).
 
-We assume you have already set up a bot and have Web Chat running on a page.
+We assume you have already set up a Direct Line Speech bot and have Web Chat running on your webpage.
 
 > Sample code in this article is optimized for modern browsers. You may need to use a [transpiler](https://en.wikipedia.org/wiki/Source-to-source_compiler) (e.g. [Babel](https://babeljs.io/)) to target a broader range of browsers.
 
@@ -23,7 +23,7 @@ Direct Line Speech is not recommended to use on traditional websites where its p
     <tr>
       <th></th>
       <th></th>
-      <th colspan="2">Chrome/Edge<br />and Firefox<br />on desktop</th>
+      <th colspan="2">Chrome/Microsoft Edge<br />and Firefox<br />on desktop</th>
       <th colspan="2">Chrome<br />on Android</th>
       <th colspan="2">Safari<br />on macOS/iOS</th>
       <th colspan="2"><a href="https://developer.android.com/reference/android/webkit/WebView">Web View<br />on Android</a></th>
@@ -303,6 +303,139 @@ window.WebChat.renderWebChat(
 
 > The code above will requires transpilation for browser which do not support the [spread operator](https://caniuse.com/#feat=mdn-javascript_operators_spread_spread_in_destructuring).
 
+## Supported options
+
+These are the options to pass when calling `createDirectLineSpeechAdapters`.
+
+<table>
+  <thead>
+    <tr>
+      <td>Name</td>
+      <td>Type</td>
+      <td>Default</td>
+      <td>Description</td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <code>audioConfig</code>
+      </td>
+      <td>
+        <code>
+          <a href="https://github.com/microsoft/cognitive-services-speech-sdk-js/blob/master/src/sdk/Audio/AudioConfig.ts">AudioConfig</a>
+        </code>
+      </td>
+      <td>
+        <code>
+          <a href="https://github.com/microsoft/cognitive-services-speech-sdk-js/blob/master/src/sdk/Audio/AudioConfig.ts">fromDefaultMicrophoneInput()</a>
+        </code>
+      </td>
+      <td>
+        Audio input object to use in Speech SDK.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <code>audioContext</code>
+      </td>
+      <td>
+        <code>
+          <a href="https://developer.mozilla.org/en-US/docs/Web/API/AudioContext">AudioContext</a>
+        </code>
+      </td>
+      <td>
+        <code>window.AudioContext || window.webkitAudioContext</code>
+      </td>
+      <td>
+        <code>AudioContext</code> used for constructing audio graph used for speech synthesis. Can be used to prime the Web Audio engine or as a ponyfill.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <code>audioInputDeviceId</code>
+      </td>
+      <td>
+        <code>string</code>
+      </td>
+      <td>
+        <code>undefined</code>
+      </td>
+      <td>Device ID of the audio input device. Ignored if <code>audioConfig</code> is specified.</td>
+    </tr>
+    <tr>
+      <td>
+        <code>fetchCredentials</code>
+      </td>
+      <td>
+        <code>
+          <a href="#directlinespeechcredentials">DirectLineSpeechCredentials</a>
+        </code>
+      </td>
+      <td>(Required)</td>
+      <td>
+        An asynchronous function to fetch credentials, including either hostname or region, and either authorization token or subscription key.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <code>speechRecognitionLanguage</code>
+      </td>
+      <td>
+        <code>string</code>
+      </td>
+      <td>
+        <pre>window?.navigator?.language ||<br />'en-US'</pre>
+      </td>
+      <td>Language used for speech recognition</td>
+    </tr>
+    <tr>
+      <td>
+        <code>userID</code>
+      </td>
+      <td>
+        <code>string</code>
+      </td>
+      <td>(A random ID)</td>
+      <td>User ID for all outgoing activities.</td>
+    </tr>
+    <tr>
+      <td>
+        <code>username</code>
+      </td>
+      <td>
+        <code>string</code>
+      </td>
+      <td>
+        <code>undefined</code>
+      </td>
+      <td>Username for all outgoing activities.</td>
+    </tr>
+  </tbody>
+</table>
+
+### `DirectLineSpeechCredentials`
+
+```js
+type DirectLineSpeechCredentials = {
+  authorizationToken: string,
+  region: string
+} || {
+  authorizationToken: string,
+  directLineSpeechHostname: string
+} || {
+  region: string,
+  subscriptionKey: string
+} || {
+  directLineSpeechHostname: string,
+  subscriptionKey: string
+}
+```
+
+For public clouds, we recommend using the `region` option, such as `"westus2"`.
+
+For sovereign clouds, you should specify the hostname in FQDN through `directLineSpeechHostname` option, such as `"virginia.convai.speech.azure.us"`.
+
 ## Known issues
 
 ### Differences in `conversationUpdate` behaviors
@@ -361,12 +494,6 @@ You can only specify speech recognition language at initialization time. You can
 
 [Proactive message](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-howto-proactive-message?view=azure-bot-service-4.0&tabs=csharp) is not supported when using Direct Line Speech.
 
-### Emulator is not supported
-
-> Please vote on [this bug](https://github.com/microsoft/BotFramework-WebChat/issues/2683) if this behavior is not desirable.
-
-Currently, Emulator only support Direct Line protocol. We are planning to add Direct Line Speech protocol to Emulator.
-
 ### Abort recognition is not supported
 
 > Please vote on [this bug](https://github.com/microsoft/BotFramework-WebChat/issues/2664) if this behavior is not desirable.
@@ -412,3 +539,31 @@ When the bot send activities to the user, it can send both plain text and Markdo
 Attachments are not synthesized. The bot should provide a `speak` field for speech synthesis.
 
 As attachments are not synthesized, `speak` property in Adaptive Cards are ignored. The bot should provide a `speak` field for speech synthesis.
+
+### Selecting voice
+
+> Please [submit a feature request](https://github.com/microsoft/BotFramework-WebChat/issues/new/choose) if this behavior is not desirable.
+
+Voice can only be selected using Speech Synthesis Markup Language (SSML). For example, the following bot code will use a Japanese voice "NanamiNeural" for synthesis.
+
+<!-- prettier-ignore-start -->
+```js
+await context.sendActivity(
+  MessageFactory.text(
+    `Echo: ${context.activity.text}`,
+    `
+    <speak
+      version="1.0"
+      xmlns="https://www.w3.org/2001/10/synthesis"
+      xmlns:mstts="https://www.w3.org/2001/mstts"
+      xml:lang="en-US"
+    >
+      <voice name="ja-JP-NanamiNeural">素晴らしい!</voice>
+    </speak>
+    `
+  )
+);
+```
+<!-- prettier-ignore-end -->
+
+Please refer to [this article on SSML support](https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/speech-synthesis-markup).

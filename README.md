@@ -16,7 +16,54 @@ This repo is part of the [Microsoft Bot Framework](https://github.com/microsoft/
 
 # Version notes
 
-> This section points out important version notes. For further information, please see the related links and check the [`CHANGELOG.md`](https://github.com/microsoft/BotFramework-WebChat/blob/master/CHANGELOG.md)
+> This section points out important version notes. For further information, please see the related links and check the [`CHANGELOG.md`](https://github.com/microsoft/BotFramework-WebChat/blob/master/CHANGELOG.md
+
+### 4.12.1 patch: New style property `adaptiveCardsParserMaxVersion`
+
+Web Chat 4.12.1 patch includes a new style property allowing developers to choose the max Adaptive Cards schema version. See [PR #3778](https://github.com/microsoft/BotFramework-WebChat/pull/3778) for code changes.
+
+To specify a different max version, you can adjust the style options, shown below:
+
+```js
+window.WebChat.renderWebChat(
+   {
+      directLine,
+      store,
+      styleOptions: {
+         adaptiveCardsParserMaxVersion: '1.2'
+      }
+   },
+   document.getElementById('webchat')
+);
+```
+
+-  Web Chat will apply the maximum schema available according to the Adaptive Cards version (as of this patch, schema 1.3) by default.
+-  An invalid version will revert to Web Chat's default.
+
+## Visual focus changes to transcript in Web Chat 4.12.0
+
+A new accessibility update has been added to Web Chat from PR [#3703](https://github.com/microsoft/BotFramework-WebChat/pull/3703). This change creates visual focus for the transcript (bold black border) and `aria-activedescendent` focused activity (black dashed border) by default. Where applicable, `transcriptVisualKeyboardIndicator...` values will also be applied to carousel (`CarouselFilmStrip.js`) children. This is done in order to match current default focus styling for Adaptive Cards, which may be a child of a carousel.
+
+To modify these styles, you can change the following props via `styleOptions`:
+
+```
+  transcriptActivityVisualKeyboardIndicatorColor: DEFAULT_SUBTLE,
+  transcriptActivityVisualKeyboardIndicatorStyle: 'dashed',
+  transcriptActivityVisualKeyboardIndicatorWidth: 1,
+  transcriptVisualKeyboardIndicatorColor: 'Black',
+  transcriptVisualKeyboardIndicatorStyle: 'solid',
+  transcriptVisualKeyboardIndicatorWidth: 2,
+```
+
+The above code shows the default values you will see in Web Chat.
+
+## API refactor into new package in Web Chat 4.11.0
+
+The Web Chat API has been refactored into a separate package. To learn more, check out the [API refactor summary](https://github.com/microsoft/BotFramework-WebChat/pull/3543).
+
+## Direct Line Speech support in Web Chat 4.7.0
+
+Starting from Web Chat 4.7.0, Direct Line Speech is supported, and it is the preferred way to provide an integrated speech functionality in Web Chat. We are working on [closing feature gaps](https://github.com/microsoft/BotFramework-WebChat/labels/Direct%20Line%20Speech) between Direct Line Speech and Web Speech API (includes Cognitive Services and browser-provided speech functionality).
 
 ## Upgrading to 4.6.0
 
@@ -99,9 +146,7 @@ Here is how how you can add Web Chat control to your website:
           }),
           userID: 'YOUR_USER_ID',
           username: 'Web Chat User',
-          locale: 'en-US',
-          botAvatarInitials: 'WC',
-          userAvatarInitials: 'WW'
+          locale: 'en-US'
         },
         document.getElementById('webchat')
       );
@@ -111,7 +156,7 @@ Here is how how you can add Web Chat control to your website:
 ```
 <!-- prettier-ignore-end -->
 
-> `userID`, `username`, `locale`, `botAvatarInitials`, and `userAvatarInitials` are all optional parameters to pass into the `renderWebChat` method. To learn more about Web Chat props, look at the [Web Chat API Reference](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/API.md) documentation.
+> `userID`, `username`, and `locale` are all optional parameters to pass into the `renderWebChat` method. To learn more about Web Chat props, look at the [Web Chat API Reference](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/API.md) documentation.
 
 > Assigning `userID` as a static value is not recommended since this will cause all users to share state. Please see the [`API userID entry`](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/API.md#userID) for more information.
 
@@ -143,6 +188,38 @@ export default () => {
 > You can also run `npm install botframework-webchat@master` to install a development build that is synced with Web Chat's GitHub `master` branch.
 
 See the working sample of [Web Chat rendered via React](https://github.com/microsoft/BotFramework-WebChat/tree/master/samples/01.getting-started/e.host-with-react/).
+
+### Experimental support for Redux DevTools
+
+Web Chat internally use Redux for state management. [Redux DevTools](https://github.com/reduxjs/redux-devtools) is enabled in the NPM build as an opt-in feature.
+
+This is for glancing into how Web Chat works. This is not an API explorer and is not an endorsement of using the Redux store to programmatically access the UI. The [hooks API](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/HOOKS.md) should be used instead.
+
+To use Redux DevTools, use the `createStoreWithDevTools` function for creating a Redux DevTools-enabled store.
+
+<!-- prettier-ignore-start -->
+```diff
+  import React, { useMemo } from 'react';
+- import ReactWebChat, { createDirectLine, createStore } from 'botframework-webchat';
++ import ReactWebChat, { createDirectLine, createStoreWithDevTools } from 'botframework-webchat';
+
+  export default () => {
+    const directLine = useMemo(() => createDirectLine({ token: 'YOUR_DIRECT_LINE_TOKEN' }), []);
+-   const store = useMemo(() => createStore(), []);
++   const store = useMemo(() => createStoreWithDevTools(), []);
+
+    return <ReactWebChat directLine={directLine} store={store} userID="YOUR_USER_ID" />;
+  };
+```
+<!-- prettier-ignore-end -->
+
+There are some limitations when using the Redux DevTools:
+
+-  The Redux store uses side-effects via [`redux-saga`](https://github.com/redux-saga/redux-saga). Time-traveling may break the UI.
+-  Many UI states are stored in React context and state. They are not exposed in the Redux store.
+-  Some time-sensitive UIs are based on real-time clock and not affected by time-traveling.
+-  Dispatching actions are not officially supported. Please use [hooks API](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/HOOKS.md) instead.
+-  Actions and reducers may move in and out of Redux store across versions. [Hooks API](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/HOOKS.md) is the official API for accessing the UI.
 
 # Customizing the Web Chat UI
 
@@ -178,15 +255,19 @@ View the [API documentation](https://github.com/microsoft/BotFramework-WebChat/t
 
 ## Browser compatibility
 
-Web Chat supports the latest 2 versions of modern browsers like Chrome, Edge, and FireFox.
+Web Chat supports the latest 2 versions of modern browsers like Chrome, Microsoft Edge, and FireFox.
 If you need Web Chat in Internet Explorer 11, please see the [ES5 bundle demo](https://microsoft.github.io/BotFramework-WebChat/01.getting-started/c.es5-bundle).
 
 Please note, however:
 
 -  Web Chat does not support Internet Explorer older than version 11
--  Customization as shown in non-ES5 samples are not supported for Internet Explorer. Because IE11 is a non-modern browser, it does not support ES6, and many samples that use arrow functions and modern promises would need to be manually converted to ES5. If you are in need of heavy customization for your app, we strongly recommend developing your app for a modern browser like Google Chrome or Edge.
+-  Customization as shown in non-ES5 samples are not supported for Internet Explorer. Because IE11 is a non-modern browser, it does not support ES6, and many samples that use arrow functions and modern promises would need to be manually converted to ES5. If you are in need of heavy customization for your app, we strongly recommend developing your app for a modern browser like Google Chrome or Microsoft Edge.
 -  Web Chat has no plan to support samples for IE11 (ES5).
    -  For customers who wish to manually rewrite our other samples to work in IE11, we recommend looking into converting code from ES6+ to ES5 using polyfills and transpilers like [`babel`](https://babeljs.io/docs/en/next/babel-standalone.html).
+
+## Accessibility
+
+View the [accessibility documentation](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/ACCESSIBILITY.md).
 
 ## Localization
 
@@ -200,47 +281,43 @@ View the [notification documentation](https://github.com/microsoft/BotFramework-
 
 View the [telemetry documentation](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/TELEMETRY.md) for implementing in Web Chat.
 
-## Speech: Integrate with Cognitive Services Speech Services
+## Technical Support Guide
 
-You can use Cognitive Services Speech Services to add bi-directional speech functionality to Web Chat. Please refer to the [Cognitive Services Speech Services](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/SPEECH.md) documentation for details.
+View the [Technical Support Guide](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/TECHNICAL_SUPPORT_GUIDE.md) to get guidance and help on troubleshooting in the Web Chat repo for more information before filing a new issue.
+
+## Speech
+
+Web Chat supports a wide-range of speech engines for a natural chat experience with a bot. This section outlines the different engines that are supported:
+
+-  [Direct Line Speech](#integrate-with-direct-line-speech)
+-  [Cognitive Services Speech Services](#integrate-with-cognitive-services-speech-services)
+-  [Browser-provided engine or other engines](#browser-provided-engine-or-other-engines)
+
+### Integrate with Direct Line Speech
+
+Direct Line Speech is the preferred way to add speech functionality in Web Chat. Please refer to the [Direct Line Speech](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/DIRECT_LINE_SPEECH.md) documentation for details.
+
+### Integrate with Cognitive Services Speech Services
+
+You can use Cognitive Services Speech Services to add speech functionality to Web Chat. Please refer to the [Cognitive Services Speech Services](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/SPEECH.md) documentation for details.
+
+### Browser-provided engine or other engines
+
+You can also use any speech engines which support [W3C Web Speech API standard](https://wicg.github.io/speech-api/). Some browsers support the [Speech Recognition API](https://caniuse.com/#feat=mdn-api_speechrecognition) and the [Speech Synthesis API](https://caniuse.com/#feat=mdn-api_speechsynthesis). You can mix-and-match different engines - including Cognitive Services Speech Services - to provide best user experience.
 
 <hr />
 
 # How to test with Web Chat's latest bits
 
-_Testing unreleased features is only available via MyGet packaging at this time._
+Web Chat latest bits are available on the [Web Chat daily releases page](https://github.com/microsoft/BotFramework-WebChat/releases/daily).
 
-If you want to test a feature or bug fix that has not yet been released, you will want to point your Web Chat package to Web Chat's daily feed, as opposed the official npmjs feed.
-
-Currently, you may access Web Chat's dailies by subscribing to our MyGet feed. To do this, you will need to update the registry in your project. **This change is reversible, and our directions include how to revert back to subscribing to the official release**.
-
-## Subscribe to latest bits on `myget.org`
-
-To do this you may add your packages and then change the registry of your project.
-
-1. Add your project dependencies other than Web Chat.
-1. In your project's root directory, create a `.npmrc` file
-1. Add the following line to your file: `registry=https://botbuilder.myget.org/F/botframework-webchat/npm/`
-1. Add Web Chat to your project dependencies `npm i botframework-webchat --save`
-1. Note that in your `package-lock.json`, the registries pointed to are now MyGet. The Web Chat project has upstream source proxy enabled, which will redirect non-MyGet packages to `npmjs.com`.
-
-## Re-subscribe to official release on `npmjs.com`
-
-Re-subscribing requires that you reset your registry.
-
-1. Delete your `.npmrc file`
-1. Delete your root `package-lock.json`
-1. Remove your `node_modules` directory
-1. Reinstall your packages with `npm i`
-1. Note that in your `package-lock.json`, the registries are pointing to https://npmjs.com/ again.
+Dailies will be released after 3:00AM Pacific Standard Time when changes have been committed to the main branch.
 
 # Contributing
 
 See our [Contributing page](https://github.com/microsoft/BotFramework-WebChat/tree/master/.github/CONTRIBUTING.md) for details on how to build the project and our repository guidelines for Pull Requests.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+See our [CODE OF CONDUCT page](https://github.com/microsoft/BotFramework-WebChat/blob/master/.github/CODE_OF_CONDUCT.md) for details about the Microsoft Code of Conduct.
 
 # Reporting Security Issues
 

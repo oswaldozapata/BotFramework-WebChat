@@ -1,26 +1,28 @@
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 
+import AccessibleButton from '../Utils/AccessibleButton';
 import connectToWebChat from '../connectToWebChat';
-import useDirection from '../hooks/useDirection';
-import useDisabled from '../hooks/useDisabled';
-import useFocusSendBox from '../hooks/useFocusSendBox';
-import usePerformCardAction from '../hooks/usePerformCardAction';
+import useFocus from '../hooks/useFocus';
+import useFocusAccessKeyEffect from '../Utils/AccessKeySink/useFocusAccessKeyEffect';
+import useLocalizeAccessKey from '../hooks/internal/useLocalizeAccessKey';
+import useScrollToEnd from '../hooks/useScrollToEnd';
+import useSuggestedActionsAccessKey from '../hooks/internal/useSuggestedActionsAccessKey';
 import useStyleSet from '../hooks/useStyleSet';
-import useSuggestedActions from '../hooks/useSuggestedActions';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 
-const SUGGESTED_ACTION_CSS = css({
-  display: 'flex',
-  flexDirection: 'column',
-  whiteSpace: 'initial',
+const { useDirection, useDisabled, usePerformCardAction, useStyleOptions, useSuggestedActions } = hooks;
 
-  '& > button': {
-    display: 'flex',
-    overflow: 'hidden'
+const ROOT_STYLE = {
+  '&.webchat__suggested-action': {
+    '& .webchat__suggested-action__button': {
+      display: 'flex',
+      overflow: 'hidden' // Prevent image from leaking; object-fit does not work with IE11
+    }
   }
-});
+};
 
 const connectSuggestedAction = (...selectors) =>
   connectToWebChat(
@@ -35,35 +37,91 @@ const connectSuggestedAction = (...selectors) =>
     ...selectors
   );
 
-const SuggestedAction = ({ 'aria-hidden': ariaHidden, buttonText, displayText, image, text, type, value }) => {
+const SuggestedAction = ({
+  'aria-hidden': ariaHidden,
+  buttonText,
+  className,
+  displayText,
+  image,
+  imageAlt,
+  text,
+  textClassName,
+  type,
+  value
+}) => {
   const [_, setSuggestedActions] = useSuggestedActions();
+  const [{ suggestedActionsStackedLayoutButtonTextWrap }] = useStyleOptions();
   const [{ suggestedAction: suggestedActionStyleSet }] = useStyleSet();
+  const [accessKey] = useSuggestedActionsAccessKey();
   const [direction] = useDirection();
   const [disabled] = useDisabled();
-  const focusSendBox = useFocusSendBox();
+  const focus = useFocus();
+  const focusRef = useRef();
+  const localizeAccessKey = useLocalizeAccessKey();
   const performCardAction = usePerformCardAction();
+  const scrollToEnd = useScrollToEnd();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
 
-  const handleClick = useCallback(() => {
-    performCardAction({ displayText, text, type, value });
-    type === 'openUrl' && setSuggestedActions([]);
-    focusSendBox();
-  }, [displayText, focusSendBox, performCardAction, setSuggestedActions, text, type, value]);
+  const handleClick = useCallback(
+    ({ target }) => {
+      performCardAction({ displayText, text, type, value }, { target });
+
+      // Since "openUrl" action do not submit, the suggested action buttons do not hide after click.
+      type === 'openUrl' && setSuggestedActions([]);
+
+      focus('sendBoxWithoutKeyboard');
+      scrollToEnd();
+    },
+    [displayText, focus, performCardAction, scrollToEnd, setSuggestedActions, text, type, value]
+  );
+
+  useFocusAccessKeyEffect(accessKey, focusRef);
 
   return (
-    <div aria-hidden={ariaHidden} className={classNames(suggestedActionStyleSet + '', SUGGESTED_ACTION_CSS + '')}>
-      <button disabled={disabled} onClick={handleClick} type="button">
-        {image && <img className={classNames(direction === 'rtl' && 'webchat__suggestedactions--rtl')} src={image} />}
-        <nobr>{buttonText}</nobr>
-      </button>
+    <div
+      aria-hidden={ariaHidden}
+      className={classNames(
+        'webchat__suggested-action',
+        { 'webchat__suggested-action--rtl': direction === 'rtl' },
+        rootClassName,
+        suggestedActionStyleSet + '',
+        (className || '') + ''
+      )}
+    >
+      <AccessibleButton
+        {...(accessKey ? { 'aria-keyshortcuts': localizeAccessKey(accessKey) } : {})}
+        className={classNames('webchat__suggested-action__button', {
+          'webchat__suggested-action--wrapping': suggestedActionsStackedLayoutButtonTextWrap
+        })}
+        disabled={disabled}
+        onClick={handleClick}
+        ref={focusRef}
+        type="button"
+      >
+        {image && (
+          <img
+            alt={imageAlt}
+            className={classNames(
+              'webchat__suggested-action__image',
+              direction === 'rtl' && 'webchat__suggested-action__image--rtl'
+            )}
+            src={image}
+          />
+        )}
+        <span className={classNames('webchat__suggested-action__text', (textClassName || '') + '')}>{buttonText}</span>
+      </AccessibleButton>
     </div>
   );
 };
 
 SuggestedAction.defaultProps = {
   'aria-hidden': false,
+  className: '',
   displayText: '',
   image: '',
+  imageAlt: undefined,
   text: '',
+  textClassName: '',
   type: '',
   value: undefined
 };
@@ -71,9 +129,12 @@ SuggestedAction.defaultProps = {
 SuggestedAction.propTypes = {
   'aria-hidden': PropTypes.bool,
   buttonText: PropTypes.string.isRequired,
+  className: PropTypes.string,
   displayText: PropTypes.string,
   image: PropTypes.string,
+  imageAlt: PropTypes.string,
   text: PropTypes.string,
+  textClassName: PropTypes.string,
   type: PropTypes.string,
   value: PropTypes.any
 };

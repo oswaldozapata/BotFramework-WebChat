@@ -1,7 +1,7 @@
 /* eslint no-magic-numbers: ["error", { "ignore": [0, 1, 2, 3, 4, 5] }] */
 /* eslint react/forbid-dom-props: "off" */
 
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -9,12 +9,12 @@ import CollapseIcon from './Toast/CollapseIcon';
 import ExpandIcon from './Toast/ExpandIcon';
 import NotificationIcon from './Toast/NotificationIcon';
 import randomId from './Utils/randomId';
-import useDebouncedNotifications from './hooks/useDebouncedNotifications';
-import useLocalizer from './hooks/useLocalizer';
-import useRenderToast from './hooks/useRenderToast';
 import useStyleSet from './hooks/useStyleSet';
+import useStyleToEmotionObject from './hooks/internal/useStyleToEmotionObject';
 
-const ROOT_CSS = css({
+const { useDebouncedNotifications, useLocalizer, useRenderToast } = hooks;
+
+const ROOT_STYLE = {
   display: 'flex',
   flexDirection: 'column',
 
@@ -31,7 +31,7 @@ const ROOT_CSS = css({
     display: 'block',
     listStyleType: 'none'
   }
-});
+};
 
 const LEVEL_AS_NUMBER = {
   error: 1,
@@ -65,13 +65,13 @@ const TOAST_ACCORDION_IDS = {
 };
 
 const BasicToaster = () => {
+  const instanceId = useMemo(randomId, []);
   const [{ toaster: toasterStyleSet }] = useStyleSet();
   const [debouncedNotifications] = useDebouncedNotifications();
   const [expanded, setExpanded] = useState(false);
   const localizeWithPlural = useLocalizer({ plural: true });
-  const expandableElementId = useMemo(() => `webchat__toaster__list__${randomId()}`, []);
-  const headerElementId = useMemo(() => `webchat__toaster__header__${randomId()}`, []);
   const renderToast = useRenderToast();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
 
   const handleToggleExpand = useCallback(() => setExpanded(!expanded), [expanded, setExpanded]);
   const sortedNotifications = useMemo(() => sortNotifications(debouncedNotifications), [debouncedNotifications]);
@@ -90,6 +90,15 @@ const BasicToaster = () => {
   const expandable = sortedNotificationsWithChildren.length > 1;
   const [highestLevel] = sortedNotificationsWithChildren.map(({ notification: { level } }) => level).sort(compareLevel);
 
+  const expandableElementId = useMemo(
+    () => (!expandable || expanded ? `webchat__toaster__list__${instanceId}` : undefined),
+    [expandable, expanded, instanceId]
+  );
+  const headerElementId = useMemo(() => (expandable ? `webchat__toaster__header__${instanceId}` : undefined), [
+    expandable,
+    instanceId
+  ]);
+
   useEffect(() => {
     !expandable && setExpanded(false);
   }, [expandable]);
@@ -98,15 +107,20 @@ const BasicToaster = () => {
     <div
       aria-labelledby={headerElementId}
       aria-live="polite"
-      aria-relevant="additions text"
-      className={classNames(ROOT_CSS + '', toasterStyleSet + '', 'webchat__toaster', {
-        'webchat__toaster--expandable': expandable,
-        'webchat__toaster--expanded': expanded,
-        'webchat__toaster--error': highestLevel === 'error',
-        'webchat__toaster--info': highestLevel === 'info',
-        'webchat__toaster--success': highestLevel === 'success',
-        'webchat__toaster--warn': highestLevel === 'warn'
-      })}
+      aria-relevant="all"
+      className={classNames(
+        'webchat__toaster',
+        {
+          'webchat__toaster--expandable': expandable,
+          'webchat__toaster--expanded': expanded,
+          'webchat__toaster--error': highestLevel === 'error',
+          'webchat__toaster--info': highestLevel === 'info',
+          'webchat__toaster--success': highestLevel === 'success',
+          'webchat__toaster--warn': highestLevel === 'warn'
+        },
+        rootClassName,
+        toasterStyleSet + ''
+      )}
       role="log"
     >
       {expandable && (
@@ -132,7 +146,7 @@ const BasicToaster = () => {
       {(!expandable || expanded) && (
         <ul aria-labelledby={headerElementId} className="webchat__toaster__list" id={expandableElementId} role="region">
           {sortedNotificationsWithChildren.map(({ children, notification: { id } }) => (
-            <li className="webchat__toaster__listItem" key={id} role="none">
+            <li aria-atomic={true} className="webchat__toaster__listItem" key={id} role="none">
               {children}
             </li>
           ))}

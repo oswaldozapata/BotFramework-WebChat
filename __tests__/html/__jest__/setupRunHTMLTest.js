@@ -1,11 +1,12 @@
-import { Builder } from 'selenium-webdriver';
+import { Builder, logging } from 'selenium-webdriver';
 import { Options } from 'selenium-webdriver/chrome';
 import { URL } from 'url';
 import fetch from 'node-fetch';
 
+import { timeout } from './sleep';
 import indent from './indent';
 import mergeCoverageMap from './mergeCoverageMap';
-
+import parseURLParams from './parseURLParams';
 import runPageProcessor from './runPageProcessor';
 
 global.runHTMLTest = async (
@@ -18,26 +19,46 @@ global.runHTMLTest = async (
     width: width * zoom
   });
 
+  const preferences = new logging.Preferences();
+
+  preferences.setLevel(logging.Type.BROWSER, logging.Level.WARNING);
+  chromeOptions.setLoggingPrefs(preferences);
+
   const driver = global.docker
     ? builder
         .forBrowser('chrome')
         .usingServer('http://localhost:4444/wd/hub')
         .setChromeOptions(chromeOptions.headless())
         .build()
-    : builder
-        .forBrowser('chrome')
-        .usingServer('http://localhost:9515/')
-        .setChromeOptions(chromeOptions)
-        .build();
+    : builder.forBrowser('chrome').usingServer('http://localhost:9515').setChromeOptions(chromeOptions).build();
 
-  const sessionId = (await driver.getSession()).getId();
+  const session = await Promise.race([
+    driver.getSession(),
+    timeout(
+      15000,
+      'Timed out while waiting for a Web Driver session. There are probably more test runners running simultaneously than Web Driver sessions, or some Web Driver sessions are not responding.'
+    )
+  ]);
+
+  const sessionId = session.getId();
+
+  const params = parseURLParams(new URL(url, 'http://webchat2/').hash);
 
   try {
+    // We are only parsing the "hash" from "url", the "http://localhost/" is actually ignored.
+    let { hash } = new URL(url, 'http://localhost/');
+
+    if (hash) {
+      hash += '&wd=1';
+    } else {
+      hash = '#wd=1';
+    }
+
     // For unknown reason, if we use ?wd=1, it will be removed.
     // But when we use #wd=1, it kept.
     await driver.get(
       global.docker
-        ? new URL(`#wd=1`, new URL(url, 'http://webchat2/'))
+        ? new URL(hash, new URL(url, 'http://webchat2/'))
         : new URL(url, `http://localhost:${global.webServerPort}/`)
     );
 
@@ -71,12 +92,12 @@ global.runHTMLTest = async (
   } finally {
     // Using JSON Wire Protocol to kill Web Driver.
     // This is more reliable because Selenium package queue commands.
-    const res = await fetch(`http://localhost:4444/wd/hub/session/${sessionId}`, { method: 'DELETE' });
+    const res = await fetch(`${builder.getServerUrl()}/session/${sessionId}`, { method: 'DELETE' });
 
     if (!res.ok) {
       const json = await res.json();
 
-      throw new Error(`Failed to kill WebDriver session ${sessionId}.\n\n${json && json.value && json.value.message}`);
+      console.warn(`Failed to kill WebDriver session ${sessionId}.\n\n${json && json.value && json.value.message}`);
     }
   }
 };

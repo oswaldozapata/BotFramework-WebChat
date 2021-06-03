@@ -1,4 +1,4 @@
-const { relative } = require('path');
+const { join, relative } = require('path');
 
 module.exports = {
   collectCoverageFrom: [
@@ -58,9 +58,15 @@ module.exports = {
           }
         ]
       }
-    ]
+    ],
+    ['./__tests__/setup/NUnitTestReporter', {
+      filename: join(__dirname, 'coverage/nunit3.xml'),
+      jestResultFilename: join(__dirname, 'coverage/jest.json')
+    }]
   ],
   setupFilesAfterEnv: [
+    '<rootDir>/__tests__/setup/setupDotEnv.js',
+    '<rootDir>/__tests__/setup/setupGlobalAgent.js',
     '<rootDir>/__tests__/setup/preSetupTestFramework.js',
     '<rootDir>/__tests__/setup/setupImageSnapshot.js',
     '<rootDir>/__tests__/setup/setupTimeout.js',
@@ -70,6 +76,7 @@ module.exports = {
     '<rootDir>/__tests__/html/assets',
     '<rootDir>/__tests__/html/__dist__',
     '<rootDir>/__tests__/html/__jest__',
+    '<rootDir>/__tests__/types/__typescript__',
     '<rootDir>/__tests__/setup/',
     '<rootDir>/packages/directlinespeech/__tests__/utilities/',
     '<rootDir>/packages/playground/',

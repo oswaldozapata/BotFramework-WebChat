@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types';
 import React from 'react';
 
 import AudioAttachment from '../../Attachment/AudioAttachment';
@@ -9,14 +8,22 @@ import VideoAttachment from '../../Attachment/VideoAttachment';
 
 // TODO: [P4] Rename this file or the whole middleware, it looks either too simple or too comprehensive now
 export default function createCoreMiddleware() {
-  return () => next => {
-    const Attachment = ({
-      activity = {},
-      activity: { from: { role } } = {},
-      attachment,
-      attachment: { contentType, contentUrl, thumbnailUrl } = {}
-    }) =>
-      role === 'user' && !/^text\//u.test(contentType) && !thumbnailUrl ? (
+  return [
+    // This is not returning a React component, but a render function.
+    /* eslint-disable-next-line react/display-name */
+    () => next => (...args) => {
+      const [
+        {
+          activity = {},
+          activity: { from: { role } = {} } = {},
+          attachment,
+          attachment: { contentType, contentUrl, thumbnailUrl } = {}
+        }
+      ] = args;
+
+      const isText = /^text\//u.test(contentType);
+
+      return (isText ? !attachment.content : role === 'user' && !thumbnailUrl) ? (
         <FileAttachment activity={activity} attachment={attachment} />
       ) : /^audio\//u.test(contentType) ? (
         <AudioAttachment activity={activity} attachment={attachment} />
@@ -26,21 +33,11 @@ export default function createCoreMiddleware() {
         <VideoAttachment activity={activity} attachment={attachment} />
       ) : contentUrl || contentType === 'application/octet-stream' ? (
         <FileAttachment activity={activity} attachment={attachment} />
-      ) : /^text\//u.test(contentType) ? (
+      ) : isText ? (
         <TextAttachment activity={activity} attachment={attachment} />
       ) : (
-        next({ activity, attachment })
+        next(...args)
       );
-
-    Attachment.propTypes = {
-      activity: PropTypes.any.isRequired,
-      attachment: PropTypes.shape({
-        contentType: PropTypes.string.isRequired,
-        contentUrl: PropTypes.string,
-        thumbnailUrl: PropTypes.string
-      }).isRequired
-    };
-
-    return Attachment;
-  };
+    }
+  ];
 }

@@ -13,9 +13,9 @@ jest.setTimeout(timeouts.test);
 async function clickButton(driver, locator) {
   await driver.wait(until.elementLocated(locator), timeouts.ui);
 
-  const pauseButton = await driver.findElement(locator);
+  const button = await driver.findElement(locator);
 
-  await pauseButton.click();
+  await button.click();
 }
 
 test('video', async () => {
@@ -32,25 +32,34 @@ test('video', async () => {
   await clickButton(driver, By.css('button[aria-label="Play"]'));
 
   // Wait until the video complete buffered and start playing
-  await driver.sleep(5000);
+  await driver.sleep(4000);
 
   // Pause the video
   await clickButton(driver, By.css('button[aria-label="Pause (k)"]'));
 
-  // Rewind for 10 seconds
-  await driver
-    .actions()
-    .sendKeys('j')
-    .perform();
+  // Jump back for 10 seconds, to get the buffering bar the same
+  await driver.actions().sendKeys('j').perform();
 
-  // Wait for YouTube play/pause/rewind animation to complete
-  await driver.sleep(1000);
+  // Wait for controls to fade in
+  await driver.sleep(500);
 
-  // Hide the spinner animation
+  // Hide the spinner, play/pause/rewind and controls
   await driver.executeScript(() => {
     const spinner = document.querySelector('.ytp-spinner');
 
     spinner && spinner.remove();
+
+    const bezelText = document.querySelector('.ytp-bezel-text-hide');
+
+    bezelText && bezelText.setAttribute('hidden', 'hidden');
+
+    const chromeBottom = document.querySelector('.ytp-chrome-bottom');
+
+    chromeBottom && chromeBottom.setAttribute('hidden', 'hidden');
+
+    const tooltip = document.querySelector('.ytp-tooltip');
+
+    tooltip && tooltip.setAttribute('hidden', 'hidden');
   });
 
   const base64PNG = await driver.takeScreenshot();

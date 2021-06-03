@@ -1,16 +1,15 @@
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
 
 import DownloadIcon from './Assets/DownloadIcon';
-import ScreenReaderText from '../ScreenReaderText';
-import useByteFormatter from '../hooks/useByteFormatter';
-import useDirection from '../hooks/useDirection';
-import useLocalizer from '../hooks/useLocalizer';
 import useStyleSet from '../hooks/useStyleSet';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 
-const ROOT_CSS = css({
+const { useByteFormatter, useDirection, useLocalizer } = hooks;
+
+const ROOT_STYLE = {
   display: 'flex',
 
   '& .webchat__fileContent__buttonLink': {
@@ -23,7 +22,7 @@ const ROOT_CSS = css({
     flex: 1,
     flexDirection: 'column'
   }
-});
+};
 
 const FileContentBadge = ({ downloadIcon, fileName, size }) => {
   const [direction] = useDirection();
@@ -65,6 +64,7 @@ const FileContent = ({ className, href, fileName, size }) => {
   const [{ fileContent: fileContentStyleSet }] = useStyleSet();
   const localize = useLocalizer();
   const localizeBytes = useByteFormatter();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
 
   const localizedSize = typeof size === 'number' && localizeBytes(size);
 
@@ -82,20 +82,17 @@ const FileContent = ({ className, href, fileName, size }) => {
 
   return (
     <div
-      aria-hidden={true}
-      className={classNames('webchat__fileContent', ROOT_CSS + '', fileContentStyleSet + '', (className || '') + '')}
+      className={classNames('webchat__fileContent', rootClassName, fileContentStyleSet + '', (className || '') + '')}
     >
-      <ScreenReaderText text={alt} />
       {href ? (
         <a
-          aria-hidden={true}
+          aria-label={alt}
           className="webchat__fileContent__buttonLink"
           download={fileName}
           href={href}
           rel="noopener noreferrer"
           target="_blank"
         >
-          {/* Although nested, Chrome v75 does not respect the above aria-hidden and makes the below aria-hidden in FileContentBadge necessary */}
           <FileContentBadge downloadIcon={true} fileName={fileName} size={size} />
         </a>
       ) : (

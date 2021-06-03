@@ -61,6 +61,8 @@ if (color) {
 
 Here is `dispatchIncomingActivityMiddleware`:
 
+> When processing any bot activities, always validate its content against an allowed list and treat it as user input.
+
 <!-- prettier-ignore-start -->
 ```js
 export default function(dispatch) {
@@ -232,5 +234,5 @@ export default function(dispatch) {
 
 View the list of [available Web Chat samples](https://github.com/microsoft/BotFramework-WebChat/tree/master/samples)
 
-  [1]: ../../06.recomposing-ui/a.minimizable-web-chat/README.md
-  [2]: ../j.redux-actions/README.md
+[1]: ../../06.recomposing-ui/a.minimizable-web-chat/README.md
+[2]: ../j.redux-actions/README.md

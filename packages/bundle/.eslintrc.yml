@@ -10,6 +10,7 @@ rules:
   # We will rework on these rules
   "@typescript-eslint/explicit-member-accessibility": off
   "@typescript-eslint/explicit-function-return-type": off
+  "@typescript-eslint/explicit-module-boundary-types": off
   "@typescript-eslint/indent": off
   "@typescript-eslint/no-explicit-any": off
   "@typescript-eslint/interface-name-prefix": off
@@ -98,3 +99,8 @@ rules:
   react/jsx-wrap-multilines: error
   react-hooks/rules-of-hooks: error
   react-hooks/exhaustive-deps: warn
+
+  # The correct way to use with typescript-eslint is to disable the core version.
+  # https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/no-use-before-define.md#how-to-use
+  no-use-before-define: off
+  "@typescript-eslint/no-use-before-define": error

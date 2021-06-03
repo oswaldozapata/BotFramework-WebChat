@@ -1,14 +1,15 @@
 import { Constants } from 'botframework-webchat-core';
+import { hooks } from 'botframework-webchat-api';
 import PropTypes from 'prop-types';
 import React, { useCallback } from 'react';
 
 import connectToWebChat from '../../../connectToWebChat';
 import ScreenReaderText from '../../../ScreenReaderText';
 import SendFailedRetry from './SendFailedRetry';
-import useFocusSendBox from '../../../hooks/useFocusSendBox';
-import useLocalizer from '../../../hooks/useLocalizer';
-import usePostActivity from '../../../hooks/usePostActivity';
+import useFocus from '../../../hooks/useFocus';
 import useStyleSet from '../../../hooks/useStyleSet';
+
+const { useLocalizer, usePostActivity } = hooks;
 
 const {
   ActivityClientState: { SEND_FAILED, SENDING }
@@ -33,7 +34,7 @@ const connectSendStatus = (...selectors) =>
 
 const SendStatus = ({ activity, sendState }) => {
   const [{ sendStatus: sendStatusStyleSet }] = useStyleSet();
-  const focusSendBox = useFocusSendBox();
+  const focus = useFocus();
   const localize = useLocalizer();
   const postActivity = usePostActivity();
 
@@ -46,8 +47,8 @@ const SendStatus = ({ activity, sendState }) => {
 
     // After clicking on "retry", the button will be gone and focus will be lost (back to document.body)
     // We want to make sure the user stay inside Web Chat
-    focusSendBox();
-  }, [activity, focusSendBox, postActivity]);
+    focus('sendBoxWithoutKeyboard');
+  }, [activity, focus, postActivity]);
 
   return (
     <React.Fragment>

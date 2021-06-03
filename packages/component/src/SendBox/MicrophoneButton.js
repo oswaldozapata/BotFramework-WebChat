@@ -2,7 +2,7 @@
 /* eslint react/forbid-dom-props: "off" */
 
 import { Constants } from 'botframework-webchat-core';
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import memoize from 'memoize-one';
 import PropTypes from 'prop-types';
@@ -12,22 +12,25 @@ import connectToWebChat from '../connectToWebChat';
 import IconButton from './IconButton';
 import MicrophoneIcon from './Assets/MicrophoneIcon';
 import useDictateAbortable from '../hooks/useDictateAbortable';
-import useDictateInterims from '../hooks/useDictateInterims';
-import useDictateState from '../hooks/useDictateState';
-import useDisabled from '../hooks/useDisabled';
-import useLocalizer from '../hooks/useLocalizer';
-import useSendBoxValue from '../hooks/useSendBoxValue';
-import useShouldSpeakIncomingActivity from '../hooks/useShouldSpeakIncomingActivity';
-import useStartDictate from '../hooks/useStartDictate';
-import useStopDictate from '../hooks/useStopDictate';
 import useStyleSet from '../hooks/useStyleSet';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 import useWebSpeechPonyfill from '../hooks/useWebSpeechPonyfill';
 
 const { DictateState } = Constants;
 
-const ROOT_CSS = css({
+const {
+  useDictateInterims,
+  useDictateState,
+  useDisabled,
+  useLocalizer,
+  useSendBoxValue,
+  useShouldSpeakIncomingActivity,
+  useStartDictate,
+  useStopDictate
+} = hooks;
+
+const ROOT_STYLE = {
   display: 'flex',
-  height: '100%',
 
   // .sr-only - This component is intended to be invisible to the visual Web Chat user, but read by the AT when using a screen reader
 
@@ -41,7 +44,7 @@ const ROOT_CSS = css({
     whiteSpace: 'nowrap',
     width: 1
   }
-});
+};
 
 const connectMicrophoneButton = (...selectors) => {
   const primeSpeechSynthesis = memoize((speechSynthesis, SpeechSynthesisUtterance) => {
@@ -152,16 +155,28 @@ const MicrophoneButton = ({ className }) => {
   const [disabled] = useMicrophoneButtonDisabled();
   const click = useMicrophoneButtonClick();
   const localize = useLocalizer();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
 
   const dictating = dictateState === DictateState.DICTATING;
 
   return (
     <div
       aria-controls="webchatSendBoxMicrophoneButton"
-      className={classNames(microphoneButtonStyleSet + '', ROOT_CSS + '', className + '', { dictating })}
+      className={classNames(
+        'webchat__microphone-button',
+        { 'webchat__microphone-button--dictating': dictating },
+        microphoneButtonStyleSet + '',
+        rootClassName,
+        (className || '') + ''
+      )}
     >
-      <IconButton alt={localize('TEXT_INPUT_SPEAK_BUTTON_ALT')} disabled={disabled} onClick={click}>
-        <MicrophoneIcon />
+      <IconButton
+        alt={localize('TEXT_INPUT_SPEAK_BUTTON_ALT')}
+        className="webchat__microphone-button__button"
+        disabled={disabled}
+        onClick={click}
+      >
+        <MicrophoneIcon className="webchat__microphone-button__icon" />
       </IconButton>
       <div aria-live="polite" className="sr-only" id="webchatSendBoxMicrophoneButton" role="status">
         {localize(dictating ? 'SPEECH_INPUT_MICROPHONE_BUTTON_OPEN_ALT' : 'SPEECH_INPUT_MICROPHONE_BUTTON_CLOSE_ALT')}

@@ -1,8 +1,8 @@
 # Using Cognitive Services Speech Services
 
-> For Direct Line Speech, please refer to [DIRECT_LINE_SPEECH.md](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/DIRECT_LINE_SPEECH.md).
+> Direct Line Speech is the preferred way to provide speech functionality in Web Chat, please refer to [DIRECT_LINE_SPEECH.md](https://github.com/microsoft/BotFramework-WebChat/blob/master/docs/DIRECT_LINE_SPEECH.md).
 
-This guide is for integrating speech-to-text and text-to-speech functionality of Azure Cognitive Services.
+This guide is for integrating speech-to-text and text-to-speech functionality using Azure Cognitive Services.
 
 We assume you have already set up a bot and have Web Chat running on a page.
 
@@ -15,7 +15,7 @@ We assume you have already set up a bot and have Web Chat running on a page.
     <tr>
       <th></th>
       <th></th>
-      <th colspan="2">Chrome/Edge<br />and Firefox<br />on desktop</th>
+      <th colspan="2">Chrome/Microsoft Edge<br />and Firefox<br />on desktop</th>
       <th colspan="2">Chrome<br />on Android</th>
       <th colspan="2">Safari<br />on macOS/iOS</th>
       <th colspan="2"><a href="https://developer.android.com/reference/android/webkit/WebView">Web View<br />on Android</a></th>
@@ -241,7 +241,7 @@ Internet Explorer 11 does not meet the basic requirements for both speech recogn
 
 Safari is the only browser that supports WebRTC API on iOS.
 
-Chrome, Edge and native apps built using `WKWebView` do not support WebRTC API. Apps based on Cordova/PhoneGap and [React Native WebView](https://github.com/react-native-community/react-native-webview) might need additional plugins or custom code to support WebRTC API.
+Chrome, Microsoft Edge and native apps built using `WKWebView` do not support WebRTC API. Apps based on Cordova/PhoneGap and [React Native WebView](https://github.com/react-native-community/react-native-webview) might need additional plugins or custom code to support WebRTC API.
 
 ### Text-to-speech requirements
 
@@ -257,6 +257,10 @@ When the user taps on the microphone button for the first time, Web Chat will pl
 If you customize Web Chat to perform any text-to-speech operations before user gestures, Web Chat will be blocked by Safari for audio playback. Thus, bot messages will not be synthesized.
 
 You can present a splash screen with a tap-to-continue button, which will ready the engine by sending an empty utterance to unblock Safari.
+
+#### Special considerations for Cordova on Android
+
+Cordova apps require additional permission for speech synthesis on Android. An example plugin that works with Web Chat is the [`cordova-plugin-k-webrtc-permission`](https://www.npmjs.com/package/cordova-plugin-k-webrtc-permission). Please note that this plugin can enable permissions beyond the necessary scope for Web Chat, and developers should only enable what their particular application needs.
 
 ## Setting up Web Chat
 

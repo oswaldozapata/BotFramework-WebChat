@@ -3,6 +3,7 @@ import { Key } from 'selenium-webdriver';
 import { imageSnapshotOptions, timeouts } from './constants.json';
 import allOutgoingActivitiesSent from './setup/conditions/allOutgoingActivitiesSent';
 import getTranscript from './setup/elements/getTranscript.js';
+import getTranscriptScrollable from './setup/elements/getTranscriptScrollable.js';
 import minNumActivitiesShown from './setup/conditions/minNumActivitiesShown';
 import negationOf from './setup/conditions/negationOf.js';
 import scrollToBottomCompleted from './setup/conditions/scrollToBottomCompleted';
@@ -16,19 +17,7 @@ import uiConnected from './setup/conditions/uiConnected';
 jest.setTimeout(timeouts.test);
 
 // Verification of fix of #1971, https://github.com/microsoft/BotFramework-WebChat/issues/1971
-test('should not focus send box after clicking on send button', async () => {
-  const { driver, pageObjects } = await setupWebDriver();
-
-  await driver.wait(uiConnected(), timeouts.directLine);
-
-  await pageObjects.typeInSendBox('echo 123');
-  await pageObjects.clickSendButton();
-
-  await driver.wait(negationOf(sendBoxTextBoxFocused()), timeouts.ui);
-});
-
-// Verification of fix of #1971, https://github.com/microsoft/BotFramework-WebChat/issues/1971
-test('SHOULD focus send box after clicking on suggested actions', async () => {
+test('should focus send box after clicking on suggested actions', async () => {
   const { driver, pageObjects } = await setupWebDriver();
 
   await driver.wait(uiConnected(), timeouts.directLine);
@@ -64,11 +53,7 @@ describe('type focus sink', () => {
 
     await driver.wait(negationOf(sendBoxTextBoxFocused()), timeouts.ui);
 
-    await driver
-      .actions()
-      .sendKeys('echo 123')
-      .sendKeys(Key.RETURN)
-      .perform();
+    await driver.actions().sendKeys('echo 123').sendKeys(Key.RETURN).perform();
 
     await driver.wait(minNumActivitiesShown(3), timeouts.directLine);
     await driver.wait(allOutgoingActivitiesSent(), timeouts.directLine);
@@ -92,12 +77,13 @@ describe('type focus sink', () => {
     // This will make sure the "New messages" button show up
     await pageObjects.scrollToTop();
 
-    await driver.executeScript(() => document.querySelector('input[placeholder="Name"]').focus());
-    await driver
-      .actions()
-      .sendKeys('echo 123')
-      .sendKeys(Key.RETURN)
-      .perform();
+    const transcriptScrollable = await getTranscriptScrollable(driver);
+
+    await driver.executeScript(
+      transcriptScrollable => transcriptScrollable.querySelector('input[placeholder="Name"]').focus(),
+      transcriptScrollable
+    );
+    await driver.actions().sendKeys('echo 123').sendKeys(Key.RETURN).perform();
 
     const base64PNG = await driver.takeScreenshot();
 
@@ -115,10 +101,7 @@ describe('type focus sink', () => {
 
     await driver.wait(negationOf(sendBoxTextBoxFocused()), timeouts.ui);
 
-    await driver
-      .actions()
-      .sendKeys(Key.SHIFT)
-      .perform();
+    await driver.actions().sendKeys(Key.SHIFT).perform();
 
     await driver.wait(negationOf(sendBoxTextBoxFocused()), timeouts.ui);
   });
@@ -136,12 +119,7 @@ describe('type focus sink', () => {
 
     await driver.wait(negationOf(sendBoxTextBoxFocused()), timeouts.ui);
 
-    await driver
-      .actions()
-      .keyDown(Key.CONTROL)
-      .sendKeys('v')
-      .keyUp(Key.CONTROL)
-      .perform();
+    await driver.actions().keyDown(Key.CONTROL).sendKeys('v').keyUp(Key.CONTROL).perform();
 
     await driver.wait(sendBoxTextBoxFocused(), timeouts.ui);
 
@@ -162,16 +140,20 @@ describe('type focus sink', () => {
     await driver.wait(minNumActivitiesShown(2), timeouts.directLine);
     await driver.wait(scrollToBottomCompleted(), timeouts.scrollToBottom);
 
-    await driver.executeScript(() => document.querySelector('input[placeholder="Name"]').focus());
-    await driver
-      .actions()
-      .keyDown(Key.CONTROL)
-      .sendKeys('v')
-      .keyUp(Key.CONTROL)
-      .perform();
+    const transcriptScrollable = await getTranscriptScrollable(driver);
+
+    await driver.executeScript(
+      transcriptScrollable => transcriptScrollable.querySelector('input[placeholder="Name"]').focus(),
+      transcriptScrollable
+    );
+    await driver.actions().keyDown(Key.CONTROL).sendKeys('v').keyUp(Key.CONTROL).perform();
 
     await driver.wait(
-      driver => driver.executeScript(() => document.querySelector('input[placeholder="Name"]').value),
+      driver =>
+        driver.executeScript(
+          transcriptScrollable => transcriptScrollable.querySelector('input[placeholder="Name"]').value,
+          transcriptScrollable
+        ),
       timeouts.ui
     );
 

@@ -1,29 +1,36 @@
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
+import PropTypes from 'prop-types';
 import React, { useCallback, useRef } from 'react';
 
 import AttachmentIcon from './Assets/AttachmentIcon';
 import connectToWebChat from '../connectToWebChat';
-import downscaleImageToDataURL from '../Utils/downscaleImageToDataURL';
+import downscaleImageToDataURL from '../Utils/downscaleImageToDataURL/index';
 import IconButton from './IconButton';
-import useDisabled from '../hooks/useDisabled';
-import useLocalizer from '../hooks/useLocalizer';
 import useSendFiles from '../hooks/useSendFiles';
 import useStyleSet from '../hooks/useStyleSet';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 
-const ROOT_CSS = css({
-  overflow: 'hidden',
-  position: 'relative',
+const { useDisabled, useLocalizer } = hooks;
 
-  '& > input': {
-    height: 0,
-    width: 0,
-    opacity: 0,
-    position: 'absolute',
-    left: 0,
-    top: 0
+const ROOT_STYLE = {
+  '&.webchat__upload-button': {
+    display: 'flex',
+    overflow: 'hidden',
+    position: 'relative',
+
+    '& .webchat__upload-button--file-input': {
+      height: 0,
+      width: 0,
+      opacity: 0,
+      position: 'absolute',
+      left: 0,
+      top: 0
+    }
   }
-});
+};
+
+const PREVENT_DEFAULT_HANDLER = event => event.preventDefault();
 
 async function makeThumbnail(file, width, height, contentType, quality) {
   if (/\.(gif|jpe?g|png)$/iu.test(file.name)) {
@@ -82,11 +89,12 @@ const connectUploadButton = (...selectors) =>
     ...selectors
   );
 
-const UploadButton = () => {
+const UploadButton = ({ className }) => {
   const [{ uploadButton: uploadButtonStyleSet }] = useStyleSet();
   const [disabled] = useDisabled();
   const inputRef = useRef();
   const localize = useLocalizer();
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
   const sendFiles = useSendFiles();
 
   const { current } = inputRef;
@@ -108,12 +116,15 @@ const UploadButton = () => {
   );
 
   return (
-    <div className={classNames(ROOT_CSS + '', uploadButtonStyleSet + '')}>
+    <div className={classNames(rootClassName, 'webchat__upload-button', uploadButtonStyleSet + '', className)}>
       <input
+        aria-disabled={disabled}
         aria-hidden="true"
-        disabled={disabled}
+        className="webchat__upload-button--file-input"
         multiple={true}
-        onChange={handleFileChange}
+        onChange={disabled ? undefined : handleFileChange}
+        onClick={disabled ? PREVENT_DEFAULT_HANDLER : undefined}
+        readOnly={disabled}
         ref={inputRef}
         role="button"
         tabIndex={-1}
@@ -124,6 +135,14 @@ const UploadButton = () => {
       </IconButton>
     </div>
   );
+};
+
+UploadButton.defaultProps = {
+  className: undefined
+};
+
+UploadButton.propTypes = {
+  className: PropTypes.string
 };
 
 export default UploadButton;

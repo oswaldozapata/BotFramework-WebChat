@@ -1,8 +1,7 @@
-/* eslint no-magic-numbers: ["error", { "ignore": [0, 1, 8, 16, 32, 128, 1000, 32768, 96000, 2147483648] }] */
+/* eslint no-magic-numbers: ["error", { "ignore": [0, 1, 8, 16, 32, 128, 1000, 16000, 32768, 96000, 2147483648] }] */
 /* eslint no-await-in-loop: "off" */
 /* eslint prefer-destructuring: "off" */
 
-import cognitiveServicesPromiseToESPromise from './cognitiveServicesPromiseToESPromise';
 import createMultiBufferingPlayer from './createMultiBufferingPlayer';
 
 // Safari requires an audio buffer with a sample rate of 22050 Hz.
@@ -101,29 +100,51 @@ function multiplySampleRate(source, sampleRateMultiplier) {
   return target;
 }
 
-export default async function playCognitiveServicesStream(
-  audioContext,
-  audioFormat,
-  streamReader,
-  { signal = {} } = {}
-) {
+export default async function playCognitiveServicesStream(audioContext, stream, { signal = {} } = {}) {
+  if (!audioContext) {
+    throw new Error('botframework-directlinespeech-sdk: audioContext must be specified.');
+  } else if (!stream) {
+    throw new Error('botframework-directlinespeech-sdk: stream must be specified.');
+  } else if (!stream.format) {
+    throw new Error('botframework-directlinespeech-sdk: stream is missing format.');
+  } else if (typeof stream.read !== 'function') {
+    throw new Error('botframework-directlinespeech-sdk: stream is missing read().');
+  }
+
   const queuedBufferSourceNodes = [];
 
   try {
+    const { format } = stream;
     const abortPromise = abortToReject(signal);
+    const array = new Uint8Array(DEFAULT_BUFFER_SIZE);
 
     const read = () =>
       Promise.race([
         // Abort will gracefully end the queue. We will check signal.aborted later to throw abort exception.
-        abortPromise.catch(() => ({ isEnd: true })),
-        cognitiveServicesPromiseToESPromise(streamReader.read())
+        // eslint-disable-next-line no-empty-function
+        abortPromise.catch(() => {}),
+        stream
+          .read(array.buffer)
+          .then(numBytes => (numBytes === array.byteLength ? array : numBytes ? array.slice(0, numBytes) : undefined))
       ]);
 
     if (signal.aborted) {
       throw new Error('aborted');
     }
 
-    let newSamplesPerSec = audioFormat.samplesPerSec;
+    let { samplesPerSec } = format;
+
+    // TODO: [P0] #3692 Remove the following if-condition block when the underlying bugs are resolved.
+    //       There is a bug in Speech SDK 1.15.0 that returns 24kHz instead of 16kHz.
+    //       Even if we explicitly specify the output audio format to 16kHz, there is another bug that ignored it.
+    //       In short, DLSpeech service currently always streams in RIFF WAV format, instead of MP3.
+    //       https://github.com/microsoft/cognitive-services-speech-sdk-js/issues/313
+    //       https://github.com/microsoft/cognitive-services-speech-sdk-js/issues/314
+    if (format.requestAudioFormatString === 'audio-24khz-48kbitrate-mono-mp3') {
+      samplesPerSec = 16000;
+    }
+
+    let newSamplesPerSec = samplesPerSec;
     let sampleRateMultiplier = 1;
 
     // Safari requires a minimum sample rate of 22100 Hz.
@@ -132,7 +153,7 @@ export default async function playCognitiveServicesStream(
     // For security, data will only be upsampled up to 96000 Hz.
     while (newSamplesPerSec < MIN_SAMPLE_RATE && newSamplesPerSec < 96000) {
       sampleRateMultiplier++;
-      newSamplesPerSec = audioFormat.samplesPerSec * sampleRateMultiplier;
+      newSamplesPerSec = samplesPerSec * sampleRateMultiplier;
     }
 
     // The third parameter is the sample size in bytes.
@@ -141,14 +162,14 @@ export default async function playCognitiveServicesStream(
     // If the multiplier 3x, it will handle 6144 samples per buffer.
     const player = createMultiBufferingPlayer(
       audioContext,
-      { ...audioFormat, samplesPerSec: newSamplesPerSec },
-      (DEFAULT_BUFFER_SIZE / (audioFormat.bitsPerSample / 8)) * sampleRateMultiplier
+      { ...format, samplesPerSec: newSamplesPerSec },
+      (DEFAULT_BUFFER_SIZE / (format.bitsPerSample / 8)) * sampleRateMultiplier
     );
 
     // For security, the maximum number of chunks handled will be 1000.
     for (
       let chunk = await read(), maxChunks = 0;
-      !chunk.isEnd && maxChunks < 1000 && !signal.aborted;
+      chunk && maxChunks < 1000 && !signal.aborted;
       chunk = await read(), maxChunks++
     ) {
       if (signal.aborted) {
@@ -159,18 +180,18 @@ export default async function playCognitiveServicesStream(
       // And each sample (A/B) will be an 8 to 32-bit number.
 
       // Convert the 8 - 32-bit number into a floating-point number, as required by Web Audio API.
-      const interleavedArrayBuffer = formatAudioDataArrayBufferToFloatArray(audioFormat, chunk.buffer);
+      const interleavedArray = formatAudioDataArrayBufferToFloatArray(format, chunk.buffer);
 
       // Deinterleave data back into two array buffer, e.g. "AAAAA" and "BBBBB".
-      const multiChannelArrayBuffer = deinterleave(interleavedArrayBuffer, audioFormat);
+      const multiChannelArray = deinterleave(interleavedArray, format);
 
       // Upsample data if necessary. If the multiplier is 2x, "AAAAA" will be upsampled to "AAAAAAAAAA" (with anti-alias).
-      const upsampledMultiChannelArrayBuffer = multiChannelArrayBuffer.map(arrayBuffer =>
-        multiplySampleRate(arrayBuffer, sampleRateMultiplier)
+      const upsampledMultiChannelArray = multiChannelArray.map(array =>
+        multiplySampleRate(array, sampleRateMultiplier)
       );
 
       // Queue to the buffering player.
-      player.push(upsampledMultiChannelArrayBuffer);
+      player.push(upsampledMultiChannelArray);
     }
 
     abortPromise.catch(() => player.cancelAll());

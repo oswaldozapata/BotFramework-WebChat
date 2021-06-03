@@ -1,15 +1,17 @@
 /* eslint react/no-danger: "off" */
 
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import PropTypes from 'prop-types';
 import React, { useCallback, useMemo } from 'react';
 import updateIn from 'simple-update-in';
 
-import createCustomEvent from '../Utils/createCustomEvent';
+import createCustomEvent from './createCustomEvent';
 import randomId from './randomId';
 import useInternalMarkdownIt from '../hooks/internal/useInternalMarkdownIt';
-import useStyleOptions from '../hooks/useStyleOptions';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 import walkMarkdownTokens from './walkMarkdownTokens';
+
+const { useStyleOptions } = hooks;
 
 function replaceAnchorWithButton(markdownTokens) {
   return walkMarkdownTokens(markdownTokens, markdownToken => {
@@ -48,13 +50,14 @@ const InlineMarkdown = ({ children, onReference, references }) => {
 
   const [markdownIt] = useInternalMarkdownIt();
   const [{ accent }] = useStyleOptions();
+  const styleToClassName = useStyleToEmotionObject();
 
   // We inlined the style here because this style is:
   // 1. Internal to Web Chat
   // 2. Not customizable from developers (other than setting `styleOptions.accent`)
   const className = useMemo(
     () =>
-      css({
+      styleToClassName({
         '& button[data-markdown-href]': {
           appearance: 'none',
           backgroundColor: 'transparent',
@@ -66,7 +69,7 @@ const InlineMarkdown = ({ children, onReference, references }) => {
           padding: 0
         }
       }) + '',
-    [accent]
+    [accent, styleToClassName]
   );
 
   // Markdown-It only support references in uppercase.
@@ -86,11 +89,7 @@ const InlineMarkdown = ({ children, onReference, references }) => {
 
   const html = useMemo(() => {
     const tree = markdownIt.parseInline(children, {
-      references: references.reduce(
-        // (references, key) => ({ ...references, [key]: { href: `#${key}` } }),
-        (references, key) => ({ ...references, [key]: { href: `#${refToHref[key]}` } }),
-        {}
-      )
+      references: references.reduce((references, key) => ({ ...references, [key]: { href: `#${refToHref[key]}` } }), {})
     });
 
     // Turn "<a href="#retry">Retry</a>" into "<button data-ref="retry" type="button">Retry</button>"

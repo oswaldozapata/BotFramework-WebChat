@@ -88,6 +88,8 @@ Next, add the GitHub octocat svg and pull in information from `props` in our anc
 
 Next we'll create our `attachmentMiddleware` and use our `<GitHubRepositoryAttachment>` component like so:
 
+> When processing any bot activities, always validate its content against an allowed list and treat it as user input.
+
 <!-- prettier-ignore-start -->
 ```js
 const attachmentMiddleware = () => next => card => {
@@ -216,4 +218,4 @@ Finally, make sure the attachmentMiddleware is added to the Web Chat render meth
 
 View the list of [available Web Chat samples](https://github.com/microsoft/BotFramework-WebChat/tree/master/samples)
 
-  [1]: ../../01.getting-started/e.host-with-react/README.md
+[1]: ../../01.getting-started/e.host-with-react/README.md

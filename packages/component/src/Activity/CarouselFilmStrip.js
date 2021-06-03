@@ -1,71 +1,100 @@
-/* eslint react/no-array-index-key: "off" */
+/* eslint complexity: ["error", 30] */
 
-import { css } from 'glamor';
-import { Context as FilmContext } from 'react-film';
+import { hooks } from 'botframework-webchat-api';
+import { useItemContainerCallbackRef, useScrollableCallbackRef } from 'react-film';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
-import remarkStripMarkdown from '../Utils/remarkStripMarkdown';
 
 import Bubble from './Bubble';
+import CarouselFilmStripAttachment from './CarouselFilmStripAttachment';
 import connectToWebChat from '../connectToWebChat';
+import isZeroOrPositive from '../Utils/isZeroOrPositive';
 import ScreenReaderText from '../ScreenReaderText';
 import textFormatToContentType from '../Utils/textFormatToContentType';
-import useAvatarForBot from '../hooks/useAvatarForBot';
-import useAvatarForUser from '../hooks/useAvatarForUser';
-import useDateFormatter from '../hooks/useDateFormatter';
-import useDirection from '../hooks/useDirection';
-import useLocalizer from '../hooks/useLocalizer';
-import useRenderActivityStatus from '../hooks/useRenderActivityStatus';
-import useRenderAvatar from '../hooks/useRenderAvatar';
-import useStyleOptions from '../hooks/useStyleOptions';
 import useStyleSet from '../hooks/useStyleSet';
+import useStyleToEmotionObject from '../hooks/internal/useStyleToEmotionObject';
 
-const ROOT_CSS = css({
-  display: 'flex',
-  MsOverflowStyle: 'none',
-  overflowX: 'scroll',
-  overflowY: 'hidden',
-  touchAction: 'manipulation',
-  WebkitOverflowScrolling: 'touch',
+const { useAvatarForBot, useAvatarForUser, useDirection, useLocalizer, useStyleOptions } = hooks;
 
-  '&::-webkit-scrollbar': {
-    display: 'none'
-  },
+const ROOT_STYLE = {
+  '&.webchat__carousel-filmstrip': {
+    display: 'flex',
+    flexDirection: 'column',
+    MsOverflowStyle: 'none',
+    overflowX: 'scroll',
+    overflowY: 'hidden',
+    position: 'relative', // This is to keep screen reader text in the destinated area.
+    touchAction: 'manipulation',
+    WebkitOverflowScrolling: 'touch',
 
-  '& > .webchat__carouselFilmStrip__avatar': {
-    flexShrink: 0
-  },
-
-  '& > .content': {
-    flex: 1,
-
-    '& > .message': {
-      display: 'flex',
-
-      '& > .bubble': {
-        flexGrow: 1,
-        overflow: 'hidden'
-      },
-
-      '& > .filler': {
-        flexGrow: 10000,
-        flexShrink: 1
-      }
+    '&::-webkit-scrollbar': {
+      display: 'none'
     },
 
-    '& > ul': {
+    '& .webchat__carousel-filmstrip__alignment-pad': {
+      flexShrink: 0
+    },
+
+    '& .webchat__carousel-filmstrip-attachment': {
+      flex: 1
+    },
+
+    '& .webchat__carousel-filmstrip__attachments': {
       display: 'flex',
       listStyleType: 'none',
       margin: 0,
-      padding: 0,
+      padding: 0
+    },
 
-      '& > li': {
-        flex: 1
-      }
+    '& .webchat__carousel-filmstrip__avatar': {
+      flexShrink: 0
+    },
+
+    '& .webchat__carousel-filmstrip__avatar-gutter': {
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0
+    },
+
+    '& .webchat__carousel-filmstrip__complimentary': {
+      display: 'flex'
+    },
+
+    '& .webchat__carousel-filmstrip__complimentary-content': {
+      display: 'flex',
+      flexGrow: 1,
+      flexDirection: 'column'
+    },
+
+    '& .webchat__carousel-filmstrip__content': {
+      display: 'flex',
+      flexGrow: 1,
+      flexDirection: 'column'
+    },
+
+    '& .webchat__carousel-filmstrip__filler': {
+      flexGrow: 10000,
+      flexShrink: 1
+    },
+
+    '& .webchat__carousel-filmstrip__main': {
+      display: 'flex'
+    },
+
+    '& .webchat__carousel-filmstrip__message': {
+      display: 'flex'
+    },
+
+    '& .webchat__carousel-filmstrip__nub-pad': {
+      flexShrink: 0
+    },
+
+    '& .webchat__carousel-filmstrip__status': {
+      display: 'flex'
     }
   }
-});
+};
 
 const connectCarouselFilmStrip = (...selectors) =>
   connectToWebChat(
@@ -84,104 +113,151 @@ const connectCarouselFilmStrip = (...selectors) =>
     ...selectors
   );
 
-const WebChatCarouselFilmStrip = ({
+const CarouselFilmStrip = ({
   activity,
-  children,
   className,
-  itemContainerRef,
-  nextVisibleActivity,
-  scrollableRef
+  hideTimestamp,
+  renderActivityStatus,
+  renderAttachment,
+  renderAvatar,
+  showCallout
 }) => {
-  const [{ bubbleNubSize, bubbleFromUserNubSize }] = useStyleOptions();
+  const [{ bubbleNubOffset, bubbleNubSize, bubbleFromUserNubOffset, bubbleFromUserNubSize }] = useStyleOptions();
   const [{ carouselFilmStrip: carouselFilmStripStyleSet }] = useStyleSet();
   const [{ initials: botInitials }] = useAvatarForBot();
   const [{ initials: userInitials }] = useAvatarForUser();
   const [direction] = useDirection();
-  const formatDate = useDateFormatter();
   const localize = useLocalizer();
-  const renderActivityStatus = useRenderActivityStatus({ activity, nextVisibleActivity });
-  const renderAvatar = useRenderAvatar({ activity });
+  const rootClassName = useStyleToEmotionObject()(ROOT_STYLE) + '';
+  const showActivityStatus = typeof renderActivityStatus === 'function';
+
+  const itemContainerCallbackRef = useItemContainerCallbackRef();
+  const scrollableCallbackRef = useScrollableCallbackRef();
 
   const {
     attachments = [],
     channelData: { messageBack: { displayText: messageBackDisplayText } = {} } = {},
     from: { role } = {},
     text,
-    textFormat,
-    timestamp
+    textFormat
   } = activity;
 
   const activityDisplayText = messageBackDisplayText || text;
   const fromUser = role === 'user';
 
-  const indented = fromUser ? bubbleFromUserNubSize : bubbleNubSize;
-  const initials = fromUser ? userInitials : botInitials;
-  const plainText = remarkStripMarkdown(activityDisplayText);
-  const roleLabel = localize(fromUser ? 'CAROUSEL_ATTACHMENTS_USER_ALT' : 'CAROUSEL_ATTACHMENTS_BOT_ALT');
+  const greetingAlt = (fromUser
+    ? localize('ACTIVITY_YOU_SAID_ALT')
+    : localize('ACTIVITY_BOT_SAID_ALT', botInitials || '')
+  ).replace(/\s{2,}/gu, ' ');
 
-  const ariaLabel = localize(
-    fromUser ? 'ACTIVITY_USER_SAID' : 'ACTIVITY_BOT_SAID',
-    initials,
-    plainText,
-    formatDate(timestamp)
-  ).trim();
+  const initials = fromUser ? userInitials : botInitials;
+  const nubOffset = fromUser ? bubbleFromUserNubOffset : bubbleNubOffset;
+  const nubSize = fromUser ? bubbleFromUserNubSize : bubbleNubSize;
+  const otherInitials = fromUser ? botInitials : userInitials;
+  const otherNubSize = fromUser ? bubbleNubSize : bubbleFromUserNubSize;
+
+  const hasAvatar = initials || typeof initials === 'string';
+  const hasOtherAvatar = otherInitials || typeof otherInitials === 'string';
+  const hasNub = typeof nubSize === 'number';
+  const hasOtherNub = typeof otherNubSize === 'number';
+  const topAlignedCallout = isZeroOrPositive(nubOffset);
+
+  const extraTrailing = !hasOtherAvatar && hasOtherNub; // This is for bot message with user nub and no user avatar. And vice versa.
+
+  const showAvatar = showCallout && hasAvatar && !!renderAvatar;
+  const showNub = showCallout && hasNub && (topAlignedCallout || !attachments.length);
 
   return (
     <div
       className={classNames(
-        ROOT_CSS + '',
-        carouselFilmStripStyleSet + '',
-        className + '',
+        'webchat__carousel-filmstrip',
         {
-          webchat__carousel_indented_content: initials && !indented,
-          webchat__carousel_extra_right_indent: !userInitials && bubbleFromUserNubSize
+          'webchat__carousel-filmstrip--extra-trailing': extraTrailing,
+          'webchat__carousel-filmstrip--hide-avatar': hasAvatar && !showAvatar,
+          'webchat__carousel-filmstrip--hide-nub': hasNub && !showNub,
+          'webchat__carousel-filmstrip--no-message': !activityDisplayText,
+          'webchat__carousel-filmstrip--rtl': direction === 'rtl',
+          'webchat__carousel-filmstrip--show-avatar': showAvatar,
+          'webchat__carousel-filmstrip--show-nub': showNub,
+          'webchat__carousel-filmstrip--top-callout': topAlignedCallout
         },
-        direction === 'rtl' ? 'webchat__carousel--rtl' : ''
+        'react-film__filmstrip',
+        rootClassName,
+        carouselFilmStripStyleSet + '',
+        (className || '') + ''
       )}
-      ref={scrollableRef}
+      ref={scrollableCallbackRef}
       role="group"
     >
-      <ScreenReaderText text={ariaLabel} />
-      {renderAvatar && <div className="webchat__carouselFilmStrip__avatar">{renderAvatar()}</div>}
-      <div className="content">
-        {!!activityDisplayText && (
-          <div className="message">
-            <Bubble aria-hidden={true} className="bubble" fromUser={fromUser} nub={true}>
-              {children({
-                activity,
-                attachment: {
-                  content: activityDisplayText,
-                  contentType: textFormatToContentType(textFormat)
-                }
-              })}
-            </Bubble>
-            <div aria-hidden={true} className="filler" />
-          </div>
-        )}
-        <ul className={classNames({ webchat__carousel__item_indented: indented })} ref={itemContainerRef}>
-          {attachments.map((attachment, index) => (
-            // Because of differences in browser implementations, aria-label=" " is used to make the screen reader not repeat the same text multiple times in Chrome v75 and Edge 44
-            <li aria-label=" " key={index}>
-              <ScreenReaderText text={roleLabel} />
-              <Bubble fromUser={fromUser} key={index} nub={false}>
-                {children({ attachment })}
+      <div className="webchat__carousel-filmstrip__main">
+        <div className="webchat__carousel-filmstrip__avatar-gutter">{showAvatar && renderAvatar({ activity })}</div>
+        <div className="webchat__carousel-filmstrip__content">
+          {!!activityDisplayText && (
+            <div aria-roledescription="message" className="webchat__carousel-filmstrip__message" role="group">
+              <ScreenReaderText text={greetingAlt} />
+              <Bubble
+                className="webchat__carousel-filmstrip__bubble"
+                fromUser={fromUser}
+                nub={showNub || ((hasAvatar || hasNub) && 'hidden')}
+              >
+                {renderAttachment({
+                  activity,
+                  attachment: {
+                    content: activityDisplayText,
+                    contentType: textFormatToContentType(textFormat)
+                  }
+                })}
               </Bubble>
-            </li>
-          ))}
-        </ul>
-        <div className={classNames({ webchat__carousel__item_indented: indented })}>{renderActivityStatus()}</div>
+              <div className="webchat__carousel-filmstrip__filler" />
+            </div>
+          )}
+          <div className="webchat__carousel-filmstrip__complimentary">
+            <div className="webchat__carousel-filmstrip__nub-pad" />
+            <div className="webchat__carousel-filmstrip__complimentary-content c">
+              <ul
+                className="webchat__carousel-filmstrip__attachments react-film__filmstrip__list"
+                ref={itemContainerCallbackRef}
+              >
+                {attachments.map((attachment, index) => (
+                  <CarouselFilmStripAttachment
+                    activity={activity}
+                    attachment={attachment}
+                    fromUser={fromUser}
+                    hasAvatar={hasAvatar}
+                    index={index}
+                    /* Attachments do not have an ID; it is always indexed by number */
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={index}
+                    renderAttachment={renderAttachment}
+                    showAvatar={showAvatar}
+                  />
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="webchat__carousel-filmstrip__alignment-pad" />
       </div>
+      {showActivityStatus && (
+        <div className="webchat__carousel-filmstrip__status">
+          <div className="webchat__carousel-filmstrip__avatar-gutter" />
+          <div className="webchat__carousel-filmstrip__nub-pad" />
+          {renderActivityStatus({ hideTimestamp })}
+        </div>
+      )}
     </div>
   );
 };
 
-WebChatCarouselFilmStrip.defaultProps = {
-  children: undefined,
+CarouselFilmStrip.defaultProps = {
   className: '',
-  nextVisibleActivity: undefined
+  hideTimestamp: false,
+  renderActivityStatus: false,
+  renderAvatar: false,
+  showCallout: false
 };
 
-WebChatCarouselFilmStrip.propTypes = {
+CarouselFilmStrip.propTypes = {
   activity: PropTypes.shape({
     attachments: PropTypes.array,
     channelData: PropTypes.shape({
@@ -197,25 +273,13 @@ WebChatCarouselFilmStrip.propTypes = {
     textFormat: PropTypes.string,
     timestamp: PropTypes.string
   }).isRequired,
-  children: PropTypes.any,
   className: PropTypes.string,
-  itemContainerRef: PropTypes.any.isRequired,
-  nextVisibleActivity: PropTypes.shape({
-    from: PropTypes.shape({
-      role: PropTypes.string.isRequired
-    }).isRequired,
-    timestamp: PropTypes.string
-  }),
-  scrollableRef: PropTypes.any.isRequired
+  hideTimestamp: PropTypes.bool,
+  renderActivityStatus: PropTypes.oneOfType([PropTypes.oneOf([false]), PropTypes.func]),
+  renderAttachment: PropTypes.func.isRequired,
+  renderAvatar: PropTypes.oneOfType([PropTypes.oneOf([false]), PropTypes.func]),
+  showCallout: PropTypes.bool
 };
-
-const CarouselFilmStrip = props => (
-  <FilmContext.Consumer>
-    {({ itemContainerRef, scrollableRef }) => (
-      <WebChatCarouselFilmStrip itemContainerRef={itemContainerRef} scrollableRef={scrollableRef} {...props} />
-    )}
-  </FilmContext.Consumer>
-);
 
 export default CarouselFilmStrip;
 

@@ -2,7 +2,7 @@
 /* eslint no-undefined: "off" */
 
 import PropTypes from 'prop-types';
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { forwardRef, useCallback, useMemo, useRef } from 'react';
 
 import Context from './Context';
 import getTabIndex from './getTabIndex';
@@ -10,7 +10,7 @@ import inputtableKey from './inputtableKey';
 
 const DEFAULT_STYLE = { outline: 0 };
 
-const FocusBox = ({ children, disabled, sendFocusRef: sendFocusRefProp, ...otherProps }) => {
+const BaseFocusBox = ({ children, disabled, onKeyDownCapture, sendFocusRef: sendFocusRefProp, ...otherProps }, ref) => {
   const sendFocusRefPersist = useRef(null);
   const patchedSendFocusRef = useMemo(() => sendFocusRefProp || sendFocusRefPersist, [
     sendFocusRefPersist,
@@ -32,6 +32,8 @@ const FocusBox = ({ children, disabled, sendFocusRef: sendFocusRefProp, ...other
 
   const handleKeyDownCapture = useCallback(
     event => {
+      onKeyDownCapture && onKeyDownCapture(event);
+
       const { altKey, ctrlKey, key, metaKey, target } = event;
       const tabIndex = getTabIndex(target);
 
@@ -42,32 +44,42 @@ const FocusBox = ({ children, disabled, sendFocusRef: sendFocusRefProp, ...other
         return;
       }
 
-      if (typeof tabIndex !== 'number' || tabIndex < 0) {
+      if (typeof tabIndex !== 'number' || tabIndex < 0 || target.getAttribute('aria-disabled') === 'true') {
         event.stopPropagation();
 
         focus();
       }
     },
-    [focus]
+    [focus, onKeyDownCapture]
   );
 
   return (
     <Context.Provider value={context}>
-      <div {...otherProps} onKeyDownCapture={!disabled && handleKeyDownCapture} style={DEFAULT_STYLE} tabIndex={-1}>
+      <div
+        {...otherProps}
+        onKeyDownCapture={disabled ? undefined : handleKeyDownCapture}
+        ref={ref}
+        style={DEFAULT_STYLE}
+        tabIndex={-1}
+      >
         {typeof children === 'function' ? children({ focus }) : children}
       </div>
     </Context.Provider>
   );
 };
 
-FocusBox.defaultProps = {
+const FocusBox = forwardRef(BaseFocusBox);
+
+FocusBox.defaultProps = BaseFocusBox.defaultProps = {
   children: undefined,
-  disabled: false
+  disabled: false,
+  onKeyDownCapture: undefined
 };
 
-FocusBox.propTypes = {
+FocusBox.propTypes = BaseFocusBox.propTypes = {
   children: PropTypes.any,
   disabled: PropTypes.bool,
+  onKeyDownCapture: PropTypes.func,
   sendFocusRef: PropTypes.shape({
     current: PropTypes.shape({
       focus: PropTypes.func

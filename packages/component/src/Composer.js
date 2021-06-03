@@ -1,254 +1,69 @@
+import { Composer as APIComposer, hooks } from 'botframework-webchat-api';
 import { Composer as SayComposer } from 'react-say';
-import {
-  Composer as ScrollToBottomComposer,
-  FunctionContext as ScrollToBottomFunctionContext
-} from 'react-scroll-to-bottom';
-
-import { css } from 'glamor';
-import { Provider } from 'react-redux';
+import createEmotion from '@emotion/css/create-instance';
+import createStyleSet from './Styles/createStyleSet';
 import MarkdownIt from 'markdown-it';
 import PropTypes from 'prop-types';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import updateIn from 'simple-update-in';
-
-import createCustomEvent from './Utils/createCustomEvent';
-import ErrorBoundary from './ErrorBoundary';
-import getAllLocalizedStrings from './Localization/getAllLocalizedStrings';
-import isObject from './Utils/isObject';
-import normalizeLanguage from './Utils/normalizeLanguage';
-import PrecompiledGlobalize from './Utils/PrecompiledGlobalize';
-import useReferenceGrammarID from './hooks/useReferenceGrammarID';
-
-import {
-  clearSuggestedActions,
-  connect as createConnectAction,
-  createStore,
-  disconnect,
-  dismissNotification,
-  emitTypingIndicator,
-  markActivity,
-  postActivity,
-  sendEvent,
-  sendFiles,
-  sendMessage,
-  sendMessageBack,
-  sendPostBack,
-  setDictateInterims,
-  setDictateState,
-  setLanguage,
-  setNotification,
-  setSendBox,
-  setSendTimeout,
-  setSendTypingIndicator,
-  startDictate,
-  startSpeakingActivity,
-  stopDictate,
-  stopSpeakingActivity,
-  submitSendBox
-} from 'botframework-webchat-core';
-
-import addTargetBlankToHyperlinksMarkdown from './Utils/addTargetBlankToHyperlinksMarkdown';
-import concatMiddleware from './Middleware/concatMiddleware';
-import createCoreCardActionMiddleware from './Middleware/CardAction/createCoreMiddleware';
-import createStyleSet from './Styles/createStyleSet';
-import defaultSelectVoice from './defaultSelectVoice';
-import Dictation from './Dictation';
-import mapMap from './Utils/mapMap';
-import observableToPromise from './Utils/observableToPromise';
-import Tracker from './Tracker';
-import WebChatReduxContext, { useDispatch } from './WebChatReduxContext';
-import WebChatUIContext from './WebChatUIContext';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import {
   speechSynthesis as bypassSpeechSynthesis,
   SpeechSynthesisUtterance as BypassSpeechSynthesisUtterance
-} from './Speech/BypassSpeechSynthesisPonyfill';
+} from './hooks/internal/BypassSpeechSynthesisPonyfill';
+import addTargetBlankToHyperlinksMarkdown from './Utils/addTargetBlankToHyperlinksMarkdown';
+import createCSSKey from './Utils/createCSSKey';
+import createDefaultActivityMiddleware from './Middleware/Activity/createCoreMiddleware';
+import createDefaultActivityStatusMiddleware from './Middleware/ActivityStatus/createCoreMiddleware';
+import createDefaultAttachmentForScreenReaderMiddleware from './Middleware/AttachmentForScreenReader/createCoreMiddleware';
+import createDefaultAttachmentMiddleware from './Middleware/Attachment/createCoreMiddleware';
+import createDefaultAvatarMiddleware from './Middleware/Avatar/createCoreMiddleware';
+import createDefaultCardActionMiddleware from './Middleware/CardAction/createCoreMiddleware';
+import createDefaultToastMiddleware from './Middleware/Toast/createCoreMiddleware';
+import createDefaultTypingIndicatorMiddleware from './Middleware/TypingIndicator/createCoreMiddleware';
+import Dictation from './Dictation';
+import downscaleImageToDataURL from './Utils/downscaleImageToDataURL';
+import ErrorBox from './ErrorBox';
+import mapMap from './Utils/mapMap';
+import singleToArray from './Utils/singleToArray';
+import UITracker from './hooks/internal/UITracker';
+import WebChatUIContext from './hooks/internal/WebChatUIContext';
 
-// List of Redux actions factory we are hoisting as Web Chat functions
-const DISPATCHERS = {
-  clearSuggestedActions,
-  dismissNotification,
-  emitTypingIndicator,
-  markActivity,
-  postActivity,
-  sendEvent,
-  sendFiles,
-  sendMessage,
-  sendMessageBack,
-  sendPostBack,
-  setDictateInterims,
-  setDictateState,
-  setNotification,
-  setSendBox,
-  setSendTimeout,
-  startDictate,
-  startSpeakingActivity,
-  stopDictate,
-  stopSpeakingActivity,
-  submitSendBox
-};
+const { useReferenceGrammarID, useStyleOptions } = hooks;
 
-function styleSetToClassNames(styleSet) {
-  return mapMap(styleSet, (style, key) => (key === 'options' ? style : css(style)));
+// eslint-disable-next-line no-undef
+const node_env = process.env.node_env || process.env.NODE_ENV;
+
+const emotionPool = {};
+
+function styleSetToEmotionObjects(styleToEmotionObject, styleSet) {
+  return mapMap(styleSet, (style, key) => (key === 'options' ? style : styleToEmotionObject(style)));
 }
 
-function createCardActionContext({ cardActionMiddleware, directLine, dispatch }) {
-  const runMiddleware = concatMiddleware(cardActionMiddleware, createCoreCardActionMiddleware())({ dispatch });
-
-  return {
-    onCardAction: cardAction =>
-      runMiddleware(({ cardAction: { type } }) => {
-        throw new Error(`Web Chat: received unknown card action "${type}"`);
-      })({
-        cardAction,
-        getSignInUrl:
-          cardAction.type === 'signin'
-            ? () => {
-                const { value } = cardAction;
-
-                if (directLine.getSessionId) {
-                  // TODO: [P3] We should change this one to async/await.
-                  //       This is the first place in this project to use async.
-                  //       Thus, we need to add @babel/plugin-transform-runtime and @babel/runtime.
-
-                  return observableToPromise(directLine.getSessionId()).then(
-                    sessionId => `${value}${encodeURIComponent(`&code_challenge=${sessionId}`)}`
-                  );
-                }
-
-                console.warn('botframework-webchat: OAuth is not supported on this Direct Line adapter.');
-
-                return value;
-              }
-            : null
-      })
-  };
-}
-
-function createFocusSendBoxContext({ sendBoxRef }) {
-  return {
-    focusSendBox: () => {
-      const { current } = sendBoxRef || {};
-
-      current && current.focus();
-    }
-  };
-}
-
-function mergeStringsOverrides(localizedStrings, language, overrideLocalizedStrings) {
-  if (!overrideLocalizedStrings) {
-    return localizedStrings;
-  } else if (typeof overrideLocalizedStrings === 'function') {
-    const merged = overrideLocalizedStrings(localizedStrings, language);
-
-    if (!isObject(merged)) {
-      throw new Error('botframework-webchat: overrideLocalizedStrings function must return an object.');
-    }
-
-    return merged;
-  }
-
-  if (!isObject(overrideLocalizedStrings)) {
-    throw new Error('botframework-webchat: overrideLocalizedStrings must be either a function, an object, or falsy.');
-  }
-
-  return { ...localizedStrings, ...overrideLocalizedStrings };
-}
-
-const Composer = ({
-  activityRenderer,
-  activityStatusRenderer,
-  attachmentRenderer,
-  avatarRenderer,
-  cardActionMiddleware,
+const ComposerCore = ({
   children,
-  dir,
-  directLine,
-  disabled,
   extraStyleSet,
-  grammars,
-  groupTimestamp,
-  locale,
-  onTelemetry,
-  overrideLocalizedStrings,
+  nonce,
   renderMarkdown,
-  scrollToEnd,
-  selectVoice,
-  sendBoxRef,
-  sendTimeout,
-  sendTypingIndicator,
-  styleOptions,
   styleSet,
-  toastRenderer,
-  typingIndicatorRenderer,
-  userID,
-  username,
+  suggestedActionsAccessKey,
   webSpeechPonyfillFactory
 }) => {
-  const dispatch = useDispatch();
-  const telemetryDimensionsRef = useRef({});
-  const [referenceGrammarID] = useReferenceGrammarID();
   const [dictateAbortable, setDictateAbortable] = useState();
-
-  const patchedDir = useMemo(() => (dir === 'ltr' || dir === 'rtl' ? dir : 'auto'), [dir]);
-  const patchedGrammars = useMemo(() => grammars || [], [grammars]);
-
-  const patchedStyleOptions = useMemo(() => {
-    const patchedStyleOptions = { ...styleOptions };
-
-    if (typeof groupTimestamp !== 'undefined' && typeof patchedStyleOptions.groupTimestamp === 'undefined') {
-      console.warn(
-        'Web Chat: "groupTimestamp" has been moved to "styleOptions". This deprecation migration will be removed on or after January 1 2022.'
-      );
-
-      patchedStyleOptions.groupTimestamp = groupTimestamp;
-    }
-
-    if (typeof sendTimeout !== 'undefined' && typeof patchedStyleOptions.sendTimeout === 'undefined') {
-      console.warn(
-        'Web Chat: "sendTimeout" has been moved to "styleOptions". This deprecation migration will be removed on or after January 1 2022.'
-      );
-
-      patchedStyleOptions.sendTimeout = sendTimeout;
-    }
-
-    if (styleOptions.slowConnectionAfter < 0) {
-      console.warn('Web Chat: "slowConnectionAfter" cannot be negative, will set to 0.');
-
-      patchedStyleOptions.slowConnectionAfter = 0;
-    }
-
-    return patchedStyleOptions;
-  }, [groupTimestamp, sendTimeout, styleOptions]);
-
-  useEffect(() => {
-    dispatch(setLanguage(locale));
-  }, [dispatch, locale]);
-
-  useEffect(() => {
-    typeof sendTimeout === 'number' && dispatch(setSendTimeout(sendTimeout));
-  }, [dispatch, sendTimeout]);
-
-  useEffect(() => {
-    dispatch(setSendTypingIndicator(!!sendTypingIndicator));
-  }, [dispatch, sendTypingIndicator]);
-
-  useEffect(() => {
-    dispatch(
-      createConnectAction({
-        directLine,
-        userID,
-        username
-      })
-    );
-
-    return () => {
-      // TODO: [P3] disconnect() is an async call (pending -> fulfilled), we need to wait, or change it to reconnect()
-      dispatch(disconnect());
-    };
-  }, [dispatch, directLine, userID, username]);
-
+  const [referenceGrammarID] = useReferenceGrammarID();
+  const [styleOptions] = useStyleOptions();
+  const focusSendBoxCallbacksRef = useRef([]);
+  const focusTranscriptCallbacksRef = useRef([]);
   const internalMarkdownIt = useMemo(() => new MarkdownIt(), []);
+  const scrollToCallbacksRef = useRef([]);
+  const scrollToEndCallbacksRef = useRef([]);
+
+  // Instead of having a `scrollUpCallbacksRef` and `scrollDownCallbacksRef`, they are combined into a single `scrollRelativeCallbacksRef`.
+  // The first argument tells whether it should go "up" or "down".
+  const scrollRelativeCallbacksRef = useRef([]);
+
+  const dictationOnError = useCallback(err => {
+    console.error(err);
+  }, []);
 
   const internalRenderMarkdownInline = useMemo(
     () => markdown => {
@@ -262,26 +77,23 @@ const Composer = ({
     [internalMarkdownIt]
   );
 
-  const cardActionContext = useMemo(() => createCardActionContext({ cardActionMiddleware, directLine, dispatch }), [
-    cardActionMiddleware,
-    directLine,
-    dispatch
-  ]);
+  const styleToEmotionObject = useMemo(() => {
+    // Emotion doesn't hash with nonce. We need to provide the pooling mechanism.
+    // 1. If 2 instances use different nonce, they should result in different hash;
+    // 2. If 2 instances are being mounted, pooling will make sure we render only 1 set of <style> tags, instead of 2.
+    const emotion =
+      emotionPool[nonce] || (emotionPool[nonce] = createEmotion({ key: `webchat--css-${createCSSKey()}`, nonce }));
 
-  const patchedSelectVoice = useCallback(selectVoice || defaultSelectVoice.bind(null, { language: locale }), [
-    selectVoice
-  ]);
-
-  const focusSendBoxContext = useMemo(() => createFocusSendBoxContext({ sendBoxRef }), [sendBoxRef]);
+    return style => emotion.css(style);
+  }, [nonce]);
 
   const patchedStyleSet = useMemo(
-    () => styleSetToClassNames({ ...(styleSet || createStyleSet(patchedStyleOptions)), ...extraStyleSet }),
-    [extraStyleSet, patchedStyleOptions, styleSet]
-  );
-
-  const hoistedDispatchers = useMemo(
-    () => mapMap(DISPATCHERS, dispatcher => (...args) => dispatch(dispatcher(...args))),
-    [dispatch]
+    () =>
+      styleSetToEmotionObjects(styleToEmotionObject, {
+        ...(styleSet || createStyleSet(styleOptions)),
+        ...extraStyleSet
+      }),
+    [extraStyleSet, styleOptions, styleSet, styleToEmotionObject]
   );
 
   const webSpeechPonyfill = useMemo(() => {
@@ -295,248 +107,263 @@ const Composer = ({
     };
   }, [referenceGrammarID, webSpeechPonyfillFactory]);
 
-  const dictationOnError = useCallback(err => {
-    console.error(err);
-  }, []);
+  const scrollPositionObserversRef = useRef([]);
+  const [numScrollPositionObservers, setNumScrollPositionObservers] = useState(0);
 
-  const patchedLocalizedStrings = useMemo(
-    () => mergeStringsOverrides(getAllLocalizedStrings()[normalizeLanguage(locale)], locale, overrideLocalizedStrings),
-    [locale, overrideLocalizedStrings]
+  const dispatchScrollPosition = useCallback(
+    event => scrollPositionObserversRef.current.forEach(observer => observer(event)),
+    [scrollPositionObserversRef]
   );
 
-  const localizedGlobalize = useMemo(() => {
-    const { GLOBALIZE, GLOBALIZE_LANGUAGE } = patchedLocalizedStrings || {};
+  const observeScrollPosition = useCallback(
+    observer => {
+      scrollPositionObserversRef.current = [...scrollPositionObserversRef.current, observer];
+      setNumScrollPositionObservers(scrollPositionObserversRef.current.length);
 
-    return GLOBALIZE || (GLOBALIZE_LANGUAGE && PrecompiledGlobalize(GLOBALIZE_LANGUAGE)) || PrecompiledGlobalize('en');
-  }, [patchedLocalizedStrings]);
-
-  const trackDimension = useCallback(
-    (name, data) => {
-      if (!name || typeof name !== 'string') {
-        return console.warn('botframework-webchat: Telemetry dimension name must be a string.');
-      }
-
-      const type = typeof data;
-
-      if (type !== 'string' && type !== 'undefined') {
-        return console.warn('botframework-webchat: Telemetry dimension data must be a string or undefined.');
-      }
-
-      telemetryDimensionsRef.current = updateIn(
-        telemetryDimensionsRef.current,
-        [name],
-        type === 'undefined' ? data : () => data
-      );
+      return () => {
+        scrollPositionObserversRef.current = scrollPositionObserversRef.current.filter(target => target !== observer);
+        setNumScrollPositionObservers(scrollPositionObserversRef.current.length);
+      };
     },
-    [telemetryDimensionsRef]
+    [scrollPositionObserversRef, setNumScrollPositionObservers]
   );
 
-  // This is a heavy function, and it is expected to be only called when there is a need to recreate business logic, e.g.
-  // - User ID changed, causing all send* functions to be updated
-  // - send
+  const transcriptFocusObserversRef = useRef([]);
+  const [numTranscriptFocusObservers, setNumTranscriptFocusObservers] = useState(0);
 
-  // TODO: [P3] We should think about if we allow the user to change onSendBoxValueChanged/sendBoxValue, e.g.
-  // 1. Turns text into UPPERCASE
-  // 2. Filter out profanity
+  const dispatchTranscriptFocus = useCallback(
+    event => transcriptFocusObserversRef.current.forEach(observer => observer(event)),
+    [transcriptFocusObserversRef]
+  );
 
-  // TODO: [P4] Revisit all members of context
-  //       This context should consist of members that are not in the Redux store
-  //       i.e. members that are not interested in other types of UIs
+  const observeTranscriptFocus = useCallback(
+    observer => {
+      transcriptFocusObserversRef.current = [...transcriptFocusObserversRef.current, observer];
+      setNumTranscriptFocusObservers(transcriptFocusObserversRef.current.length);
+
+      return () => {
+        transcriptFocusObserversRef.current = transcriptFocusObserversRef.current.filter(target => target !== observer);
+        setNumTranscriptFocusObservers(transcriptFocusObserversRef.current.length);
+      };
+    },
+    [transcriptFocusObserversRef, setNumTranscriptFocusObservers]
+  );
+
   const context = useMemo(
     () => ({
-      ...cardActionContext,
-      ...focusSendBoxContext,
-      ...hoistedDispatchers,
-      activityRenderer,
-      activityStatusRenderer,
-      attachmentRenderer,
-      avatarRenderer,
       dictateAbortable,
-      dir: patchedDir,
-      directLine,
-      disabled,
-      grammars: patchedGrammars,
+      dispatchScrollPosition,
+      dispatchTranscriptFocus,
+      focusSendBoxCallbacksRef,
+      focusTranscriptCallbacksRef,
       internalMarkdownItState: [internalMarkdownIt],
       internalRenderMarkdownInline,
-      language: locale,
-      localizedGlobalizeState: [localizedGlobalize],
-      localizedStrings: patchedLocalizedStrings,
-      onTelemetry,
+      nonce,
+      numScrollPositionObservers,
+      numTranscriptFocusObservers,
+      observeScrollPosition,
+      observeTranscriptFocus,
       renderMarkdown,
-      scrollToEnd,
-      selectVoice: patchedSelectVoice,
-      sendBoxRef,
-      sendTypingIndicator,
+      scrollRelativeCallbacksRef,
+      scrollToCallbacksRef,
+      scrollToEndCallbacksRef,
       setDictateAbortable,
-      trackDimension,
-      styleOptions,
       styleSet: patchedStyleSet,
-      telemetryDimensionsRef,
-      toastRenderer,
-      typingIndicatorRenderer,
-      userID,
-      username,
+      styleToEmotionObject,
+      suggestedActionsAccessKey,
       webSpeechPonyfill
     }),
     [
-      activityRenderer,
-      activityStatusRenderer,
-      attachmentRenderer,
-      avatarRenderer,
-      cardActionContext,
       dictateAbortable,
-      directLine,
-      disabled,
-      focusSendBoxContext,
-      hoistedDispatchers,
+      dispatchScrollPosition,
+      dispatchTranscriptFocus,
+      focusSendBoxCallbacksRef,
+      focusTranscriptCallbacksRef,
       internalMarkdownIt,
       internalRenderMarkdownInline,
-      locale,
-      localizedGlobalize,
-      onTelemetry,
-      patchedDir,
-      patchedGrammars,
-      patchedLocalizedStrings,
-      patchedSelectVoice,
-      sendTypingIndicator,
+      nonce,
+      numScrollPositionObservers,
+      numTranscriptFocusObservers,
+      observeScrollPosition,
+      observeTranscriptFocus,
       patchedStyleSet,
       renderMarkdown,
-      scrollToEnd,
-      sendBoxRef,
+      scrollRelativeCallbacksRef,
+      scrollToCallbacksRef,
+      scrollToEndCallbacksRef,
       setDictateAbortable,
-      trackDimension,
-      styleOptions,
-      telemetryDimensionsRef,
-      toastRenderer,
-      typingIndicatorRenderer,
-      userID,
-      username,
+      styleToEmotionObject,
+      suggestedActionsAccessKey,
       webSpeechPonyfill
     ]
   );
 
   return (
-    <WebChatUIContext.Provider value={context}>
-      <SayComposer ponyfill={webSpeechPonyfill}>
-        {typeof children === 'function' ? children(context) : children}
-      </SayComposer>
-      <Dictation onError={dictationOnError} />
-      {onTelemetry && <Tracker />}
-    </WebChatUIContext.Provider>
+    <SayComposer ponyfill={webSpeechPonyfill}>
+      <WebChatUIContext.Provider value={context}>
+        {children}
+        <Dictation onError={dictationOnError} />
+      </WebChatUIContext.Provider>
+    </SayComposer>
   );
 };
 
-// We will create a Redux store if it was not passed in
-const ComposeWithStore = ({ onTelemetry, store, ...props }) => {
-  const handleError = useCallback(
-    ({ error }) => {
-      onTelemetry && onTelemetry(createCustomEvent('exception', { error, fatal: true }));
-    },
-    [onTelemetry]
+ComposerCore.defaultProps = {
+  extraStyleSet: undefined,
+  nonce: undefined,
+  renderMarkdown: undefined,
+  styleSet: undefined,
+  suggestedActionsAccessKey: 'A a Å å',
+  webSpeechPonyfillFactory: undefined
+};
+
+ComposerCore.propTypes = {
+  extraStyleSet: PropTypes.any,
+  nonce: PropTypes.string,
+  renderMarkdown: PropTypes.func,
+  styleSet: PropTypes.any,
+  suggestedActionsAccessKey: PropTypes.oneOfType([PropTypes.oneOf([false]), PropTypes.string]),
+  webSpeechPonyfillFactory: PropTypes.func
+};
+
+const Composer = ({
+  activityMiddleware,
+  activityStatusMiddleware,
+  attachmentForScreenReaderMiddleware,
+  attachmentMiddleware,
+  avatarMiddleware,
+  cardActionMiddleware,
+  children,
+  extraStyleSet,
+  renderMarkdown,
+  styleSet,
+  suggestedActionsAccessKey,
+  toastMiddleware,
+  typingIndicatorMiddleware,
+  webSpeechPonyfillFactory,
+  ...composerProps
+}) => {
+  const { nonce, onTelemetry } = composerProps;
+
+  const patchedActivityMiddleware = useMemo(
+    () => [...singleToArray(activityMiddleware), ...createDefaultActivityMiddleware()],
+    [activityMiddleware]
   );
 
-  const memoizedStore = useMemo(() => store || createStore(), [store]);
+  const patchedActivityStatusMiddleware = useMemo(
+    () => [...singleToArray(activityStatusMiddleware), ...createDefaultActivityStatusMiddleware()],
+    [activityStatusMiddleware]
+  );
+
+  const patchedAttachmentForScreenReaderMiddleware = useMemo(
+    () => [
+      ...singleToArray(attachmentForScreenReaderMiddleware),
+      ...createDefaultAttachmentForScreenReaderMiddleware()
+    ],
+    [attachmentForScreenReaderMiddleware]
+  );
+
+  const patchedAttachmentMiddleware = useMemo(
+    () => [...singleToArray(attachmentMiddleware), ...createDefaultAttachmentMiddleware()],
+    [attachmentMiddleware]
+  );
+
+  const patchedAvatarMiddleware = useMemo(
+    () => [...singleToArray(avatarMiddleware), ...createDefaultAvatarMiddleware()],
+    [avatarMiddleware]
+  );
+
+  const patchedCardActionMiddleware = useMemo(
+    () => [...singleToArray(cardActionMiddleware), ...createDefaultCardActionMiddleware()],
+    [cardActionMiddleware]
+  );
+
+  const patchedToastMiddleware = useMemo(() => [...singleToArray(toastMiddleware), ...createDefaultToastMiddleware()], [
+    toastMiddleware
+  ]);
+
+  const patchedTypingIndicatorMiddleware = useMemo(
+    () => [...singleToArray(typingIndicatorMiddleware), ...createDefaultTypingIndicatorMiddleware()],
+    [typingIndicatorMiddleware]
+  );
 
   return (
-    <ErrorBoundary onError={handleError}>
-      <Provider context={WebChatReduxContext} store={memoizedStore}>
-        <ScrollToBottomComposer>
-          <ScrollToBottomFunctionContext.Consumer>
-            {({ scrollToEnd }) => <Composer onTelemetry={onTelemetry} scrollToEnd={scrollToEnd} {...props} />}
-          </ScrollToBottomFunctionContext.Consumer>
-        </ScrollToBottomComposer>
-      </Provider>
-    </ErrorBoundary>
+    <React.Fragment>
+      <APIComposer
+        activityMiddleware={patchedActivityMiddleware}
+        activityStatusMiddleware={patchedActivityStatusMiddleware}
+        attachmentForScreenReaderMiddleware={patchedAttachmentForScreenReaderMiddleware}
+        attachmentMiddleware={patchedAttachmentMiddleware}
+        avatarMiddleware={patchedAvatarMiddleware}
+        cardActionMiddleware={patchedCardActionMiddleware}
+        downscaleImageToDataURL={downscaleImageToDataURL}
+        // Under dev server of create-react-app, "NODE_ENV" will be set to "development".
+        internalErrorBoxClass={node_env === 'development' ? ErrorBox : undefined}
+        nonce={nonce}
+        toastMiddleware={patchedToastMiddleware}
+        typingIndicatorMiddleware={patchedTypingIndicatorMiddleware}
+        {...composerProps}
+      >
+        <ComposerCore
+          extraStyleSet={extraStyleSet}
+          nonce={nonce}
+          renderMarkdown={renderMarkdown}
+          styleSet={styleSet}
+          suggestedActionsAccessKey={suggestedActionsAccessKey}
+          webSpeechPonyfillFactory={webSpeechPonyfillFactory}
+        >
+          {children}
+          {onTelemetry && <UITracker />}
+        </ComposerCore>
+      </APIComposer>
+    </React.Fragment>
   );
 };
 
-ComposeWithStore.defaultProps = {
-  onTelemetry: undefined,
-  store: undefined
-};
-
-ComposeWithStore.propTypes = {
-  onTelemetry: PropTypes.func,
-  store: PropTypes.any
-};
-
-export default ComposeWithStore;
-
-// TODO: [P3] We should consider moving some data from Redux store to props
-//       Although we use `connectToWebChat` to hide the details of accessor of Redux store,
-//       we should clean up the responsibility between Context and Redux store
-//       We should decide which data is needed for React but not in other environment such as CLI/VSCode
-
 Composer.defaultProps = {
+  ...APIComposer.defaultProps,
+  ...ComposerCore.defaultProps,
+  activityMiddleware: undefined,
   activityRenderer: undefined,
+  activityStatusMiddleware: undefined,
   activityStatusRenderer: undefined,
+  attachmentForScreenReaderMiddleware: undefined,
+  attachmentMiddleware: undefined,
   attachmentRenderer: undefined,
+  avatarMiddleware: undefined,
   avatarRenderer: undefined,
   cardActionMiddleware: undefined,
   children: undefined,
-  dir: 'auto',
-  disabled: false,
-  extraStyleSet: undefined,
-  grammars: [],
-  groupTimestamp: undefined,
-  locale: window.navigator.language || 'en-US',
-  onTelemetry: undefined,
-  overrideLocalizedStrings: undefined,
+  nonce: undefined,
   renderMarkdown: undefined,
-  selectVoice: undefined,
-  sendBoxRef: undefined,
-  sendTimeout: undefined,
-  sendTypingIndicator: false,
-  styleOptions: {},
-  styleSet: undefined,
+  toastMiddleware: undefined,
   toastRenderer: undefined,
+  typingIndicatorMiddleware: undefined,
   typingIndicatorRenderer: undefined,
-  userID: '',
-  username: '',
   webSpeechPonyfillFactory: undefined
 };
 
 Composer.propTypes = {
+  ...APIComposer.propTypes,
+  ...ComposerCore.propTypes,
+  activityMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   activityRenderer: PropTypes.func,
+  activityStatusMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   activityStatusRenderer: PropTypes.func,
+  attachmentForScreenReaderMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
+  attachmentMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   attachmentRenderer: PropTypes.func,
+  avatarMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   avatarRenderer: PropTypes.func,
   cardActionMiddleware: PropTypes.func,
   children: PropTypes.any,
-  dir: PropTypes.oneOf(['auto', 'ltr', 'rtl']),
-  directLine: PropTypes.shape({
-    activity$: PropTypes.shape({
-      subscribe: PropTypes.func.isRequired
-    }).isRequired,
-    connectionStatus$: PropTypes.shape({
-      subscribe: PropTypes.func.isRequired
-    }).isRequired,
-    end: PropTypes.func,
-    getSessionId: PropTypes.func,
-    postActivity: PropTypes.func.isRequired,
-    referenceGrammarID: PropTypes.string,
-    token: PropTypes.string
-  }).isRequired,
-  disabled: PropTypes.bool,
-  extraStyleSet: PropTypes.any,
-  grammars: PropTypes.arrayOf(PropTypes.string),
-  groupTimestamp: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
-  locale: PropTypes.string,
-  onTelemetry: PropTypes.func,
-  overrideLocalizedStrings: PropTypes.oneOfType([PropTypes.any, PropTypes.func]),
+  nonce: PropTypes.string,
   renderMarkdown: PropTypes.func,
-  scrollToEnd: PropTypes.func.isRequired,
-  selectVoice: PropTypes.func,
-  sendBoxRef: PropTypes.shape({
-    current: PropTypes.any
-  }),
-  sendTimeout: PropTypes.number,
-  sendTypingIndicator: PropTypes.bool,
-  styleOptions: PropTypes.any,
-  styleSet: PropTypes.any,
+  toastMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   toastRenderer: PropTypes.func,
+  typingIndicatorMiddleware: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.func), PropTypes.func]),
   typingIndicatorRenderer: PropTypes.func,
-  userID: PropTypes.string,
-  username: PropTypes.string,
   webSpeechPonyfillFactory: PropTypes.func
 };
+
+export default Composer;

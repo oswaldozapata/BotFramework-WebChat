@@ -1,105 +1,35 @@
-import BasicWebChat from './BasicWebChat';
+import { FC } from 'react';
+import { StyleOptions } from 'botframework-webchat-api';
 
-import Composer from './Composer';
+type Expando<T> = Omit<any, keyof T> & T;
 
-import Avatar from './Activity/Avatar';
-import Bubble from './Activity/Bubble';
-import CarouselLayout from './Activity/CarouselLayout';
-import ErrorBox from './ErrorBox';
-import Localize, { localize } from './Localization/Localize';
-import SendStatus, { connectSendStatus } from './Middleware/ActivityStatus/SendStatus/SendStatus';
-import SpeakActivity, { connectSpeakActivity } from './Activity/Speak';
-import StackedLayout, { connectStackedLayout } from './Activity/StackedLayout';
-import Timestamp from './Middleware/ActivityStatus/Timestamp';
+/** Creates a set of styles */
+// eslint-disable-next-line no-unused-vars
+declare function createStyleSet(styleOptions: StyleOptions): any;
 
-import AudioContent from './Attachment/AudioContent';
-import FileContent from './Attachment/FileContent';
-import HTMLVideoContent from './Attachment/HTMLVideoContent';
-import ImageContent from './Attachment/ImageContent';
-import TextContent from './Attachment/TextContent';
-import VideoContent from './Attachment/VideoContent';
-import VimeoContent from './Attachment/VimeoContent';
-import YouTubeContent from './Attachment/YouTubeContent';
+type ComposerProps = {
+  /** Text directionality */
+  dir?: 'ltr' | 'rtl' | 'auto';
 
-import DictationInterims, { connectDictationInterims } from './SendBox/DictationInterims';
-import MicrophoneButton, { connectMicrophoneButton } from './SendBox/MicrophoneButton';
-import SendButton, { connectSendButton } from './SendBox/SendButton';
-import SendTextBox, { connectSendTextBox } from './SendBox/TextBox';
-import SuggestedActions, { connectSuggestedActions } from './SendBox/SuggestedActions';
-import UploadButton, { connectUploadButton } from './SendBox/UploadButton';
-
-import concatMiddleware from './Middleware/concatMiddleware';
-import connectToWebChat from './connectToWebChat';
-import Context from './WebChatUIContext';
-import createCoreActivityMiddleware from './Middleware/Activity/createCoreMiddleware';
-import createCoreActivityStatusMiddleware from './Middleware/ActivityStatus/createCoreMiddleware';
-import createCoreAttachmentMiddleware from './Middleware/Attachment/createCoreMiddleware';
-import createStyleSet from './Styles/createStyleSet';
-import defaultStyleOptions from './Styles/defaultStyleOptions';
-import getTabIndex from './Utils/TypeFocusSink/getTabIndex';
-
-import * as hooks from './hooks/index';
-
-const version = process.env.npm_package_version;
-
-const Components = {
-  Composer,
-  Localize,
-
-  // Components for recomposing activities and attachments
-  AudioContent,
-  FileContent,
-  HTMLVideoContent,
-  ImageContent,
-  TextContent,
-  VideoContent,
-  VimeoContent,
-  YouTubeContent,
-
-  // Components for recomposing transcript
-  Avatar,
-  Bubble,
-  CarouselLayout,
-  ErrorBox,
-  SendStatus,
-  SpeakActivity,
-  StackedLayout,
-  Timestamp,
-
-  connectSendStatus,
-  connectSpeakActivity,
-  connectStackedLayout,
-
-  // Components for recomposing send box
-  DictationInterims,
-  MicrophoneButton,
-  SendButton,
-  SendTextBox,
-  SuggestedActions,
-  UploadButton,
-
-  connectDictationInterims,
-  connectMicrophoneButton,
-  connectSendButton,
-  connectSendTextBox,
-  connectSuggestedActions,
-  connectUploadButton
+  /** Style options */
+  styleOptions?: StyleOptions;
 };
 
-export default BasicWebChat;
+type ReactWebChatProps = {
+  /** Text directionality */
+  dir?: 'ltr' | 'rtl' | 'auto';
 
-export {
-  Components,
-  concatMiddleware,
-  connectToWebChat,
-  Context,
-  createCoreActivityMiddleware,
-  createCoreActivityStatusMiddleware,
-  createCoreAttachmentMiddleware,
-  createStyleSet,
-  defaultStyleOptions,
-  getTabIndex,
-  hooks,
-  localize,
-  version
+  /** Style options */
+  styleOptions?: StyleOptions;
 };
+
+/** React-based Web Chat */
+declare const ReactWebChat: FC<Expando<ReactWebChatProps>>;
+
+declare const Components: Expando<{
+  Composer: FC<Expando<ComposerProps>>;
+}>;
+
+export default ReactWebChat;
+export { Components, createStyleSet };
+export type { ComposerProps, ReactWebChatProps };

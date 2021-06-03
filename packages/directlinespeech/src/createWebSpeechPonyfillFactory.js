@@ -1,9 +1,9 @@
 /* eslint class-methods-use-this: ["error", { "exceptMethods": ["cancel", "getVoices", "speak"] }] */
 
-import { AudioConfig } from 'microsoft-cognitiveservices-speech-sdk';
 import { createSpeechRecognitionPonyfillFromRecognizer } from 'web-speech-cognitive-services/lib/SpeechServices/SpeechToText';
 
 import AbortController from 'abort-controller-es5';
+import createCustomEvent from './createCustomEvent';
 import createErrorEvent from './createErrorEvent';
 import createTaskQueue from './createTaskQueue';
 import EventTargetShim, { defineEventAttribute } from 'event-target-shim-es5';
@@ -12,7 +12,6 @@ import playWhiteNoise from './playWhiteNoise';
 import SpeechSynthesisAudioStreamUtterance from './SpeechSynthesisAudioStreamUtterance';
 
 export default function({
-  audioConfig = AudioConfig.fromDefaultMicrophoneInput(),
   audioContext,
   enableTelemetry,
   ponyfill = {
@@ -31,7 +30,6 @@ export default function({
 
   return () => {
     const { SpeechGrammarList, SpeechRecognition } = createSpeechRecognitionPonyfillFromRecognizer({
-      audioConfig,
       createRecognizer: () => recognizer,
       enableTelemetry,
       looseEvents: true,
@@ -63,13 +61,11 @@ export default function({
           return {
             abort: controller.abort.bind(controller),
             result: (async () => {
-              utterance.dispatchEvent(new Event('start'));
+              utterance.dispatchEvent(createCustomEvent('start'));
 
               try {
                 if (utterance.audioStream) {
-                  const { format, streamReader } = utterance.audioStream;
-
-                  await playCognitiveServicesStream(audioContext, format, streamReader, { signal });
+                  await playCognitiveServicesStream(audioContext, utterance.audioStream, { signal });
                 } else {
                   await playWhiteNoise(audioContext);
                 }
@@ -80,7 +76,7 @@ export default function({
                 }
               }
 
-              utterance.dispatchEvent(new Event('end'));
+              utterance.dispatchEvent(createCustomEvent('end'));
             })()
           };
         });

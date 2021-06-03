@@ -8,9 +8,10 @@ const timeouts = {
   directLine: 15000,
   fetch: 2500,
   fetchImage: 5000,
+  fetchMedia: 15000,
   navigation: 10000,
   postActivity: 30000,
-  scrollToBottom: 2000,
+  scrollToBottom: 5000,
   ui: 1000
 };
 

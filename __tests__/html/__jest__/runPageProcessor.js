@@ -1,5 +1,9 @@
 import { join } from 'path';
+import { Key, logging } from 'selenium-webdriver';
+import { promisify } from 'util';
+import { tmpdir } from 'os';
 import createDeferred from 'p-defer';
+import fs from 'fs';
 
 import { imageSnapshotOptions } from '../../constants.json';
 import createJobObservable from './createJobObservable';
@@ -9,16 +13,30 @@ const customImageSnapshotOptions = {
   customSnapshotsDir: join(__dirname, '../../__image_snapshots__/html')
 };
 
+const writeFile = promisify(fs.writeFile);
+
+async function getBrowserConsoleLogs(driver) {
+  return await driver.manage().logs().get(logging.Type.BROWSER);
+}
+
 export default async function runPageProcessor(driver, { ignoreConsoleError = false, ignorePageError = false } = {}) {
   const webChatLoaded = await driver.executeScript(() => !!window.WebChat);
   const webChatTestLoaded = await driver.executeScript(() => !!window.WebChatTest);
 
   if (!webChatLoaded) {
-    throw new Error('"webchat.js" is not loaded on the page.');
+    try {
+      console.log('Browser console logs', await getBrowserConsoleLogs(driver));
+    } catch (err) {}
+
+    throw new Error('"webchat.js" did not load on the page, or the page was not found.');
   }
 
   if (!webChatTestLoaded) {
-    throw new Error('"testharness.js" is not loaded on the page.');
+    try {
+      console.log('Browser console logs', await getBrowserConsoleLogs(driver));
+    } catch (err) {}
+
+    throw new Error('"testharness.js" did not load on the page.');
   }
 
   if (await driver.executeScript(() => !(window.React && window.ReactDOM && window.ReactTestUtils))) {
@@ -51,18 +69,44 @@ export default async function runPageProcessor(driver, { ignoreConsoleError = fa
     },
     next: async ({ deferred, job }) => {
       try {
-        if (job.type === 'snapshot') {
-          try {
-            expect(await driver.takeScreenshot()).toMatchImageSnapshot(customImageSnapshotOptions);
-            deferred.resolve();
-          } catch (err) {
-            pageResultDeferred.reject(err);
-            deferred.reject(err);
-          }
+        let result;
+
+        if (job.type === 'send keys') {
+          await job.payload.keys
+            .reduce((actions, key) => actions.sendKeys(Key[key] || key), driver.actions())
+            .perform();
+        } else if (job.type === 'send tab') {
+          await driver.actions().sendKeys(Key.TAB).perform();
+        } else if (job.type === 'send shift tab') {
+          await driver.actions().keyDown(Key.SHIFT).sendKeys(Key.TAB).keyUp(Key.SHIFT).perform();
+        } else if (job.type === 'send access key') {
+          await driver
+            .actions()
+            .keyDown(Key.ALT)
+            .keyDown(Key.SHIFT)
+            .sendKeys(job.payload.key)
+            .keyUp(Key.SHIFT)
+            .keyUp(Key.ALT)
+            .perform();
+        } else if (job.type === 'snapshot') {
+          expect(await driver.takeScreenshot()).toMatchImageSnapshot(customImageSnapshotOptions);
+        } else if (job.type === 'save file') {
+          const filename = join(tmpdir(), `${Date.now()}-${job.payload.filename}`);
+
+          await writeFile(filename, Buffer.from(job.payload.base64, 'base64'));
+
+          console.log(`Saved to ${filename}`);
+
+          result = filename;
+        } else if (job.type === 'expect deprecation') {
+          result = (await driver.executeScript(() => window.WebChatTest.shiftDeprecationHistory())).length;
         } else {
           throw new Error(`Unknown job type "${job.type}".`);
         }
+
+        deferred.resolve(result);
       } catch (err) {
+        pageResultDeferred.reject(err);
         deferred.reject(err);
       }
     }

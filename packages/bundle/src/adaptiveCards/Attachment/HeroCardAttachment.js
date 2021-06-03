@@ -1,39 +1,33 @@
 import PropTypes from 'prop-types';
-import React, { useMemo } from 'react';
+import React from 'react';
 
-import { hooks } from 'botframework-webchat-component';
+import HeroCardContent from './HeroCardContent';
 
-import AdaptiveCardBuilder from './AdaptiveCardBuilder';
-import AdaptiveCardRenderer from './AdaptiveCardRenderer';
-import useAdaptiveCardsPackage from '../hooks/useAdaptiveCardsPackage';
+const HeroCardAttachment = ({ attachment: { content } = {}, disabled }) =>
+  !!content && <HeroCardContent content={content} disabled={disabled} />;
 
-const { useDirection, useStyleOptions } = hooks;
-
-const HeroCardAttachment = ({ attachment: { content } = {} }) => {
-  const [adaptiveCardsPackage] = useAdaptiveCardsPackage();
-  const [styleOptions] = useStyleOptions();
-  const [direction] = useDirection();
-  const builtCard = useMemo(() => {
-    const builder = new AdaptiveCardBuilder(adaptiveCardsPackage, styleOptions, direction);
-
-    if (content) {
-      (content.images || []).forEach(image => builder.addImage(image.url, null, image.tap));
-
-      builder.addCommon(content);
-
-      return builder.card;
-    }
-  }, [adaptiveCardsPackage, content, direction, styleOptions]);
-
-  return <AdaptiveCardRenderer adaptiveCard={builtCard} tapAction={content && content.tap} />;
+HeroCardAttachment.defaultProps = {
+  disabled: undefined
 };
 
 HeroCardAttachment.propTypes = {
   attachment: PropTypes.shape({
     content: PropTypes.shape({
-      tap: PropTypes.any
+      buttons: PropTypes.any,
+      images: PropTypes.arrayOf(
+        PropTypes.shape({
+          alt: PropTypes.string,
+          tap: PropTypes.any,
+          url: PropTypes.string.isRequired
+        })
+      ),
+      subtitle: PropTypes.string,
+      tap: PropTypes.any,
+      text: PropTypes.string,
+      title: PropTypes.string
     }).isRequired
-  }).isRequired
+  }).isRequired,
+  disabled: PropTypes.bool
 };
 
 export default HeroCardAttachment;

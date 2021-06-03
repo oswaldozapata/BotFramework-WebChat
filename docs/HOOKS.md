@@ -25,9 +25,9 @@ All actions will return a function that can be called at a later point. For exam
 
 <!-- prettier-ignore-start -->
 ```js
-const focusSendBox = useFocusSendBox();
+const focus = useFocus();
 
-focusSendBox();
+focus('sendBox');
 ```
 <!-- prettier-ignore-end -->
 
@@ -59,42 +59,56 @@ Following is the list of hooks supported by Web Chat API.
 -  [`useAvatarForUser`](#useavatarforuser)
 -  [`useByteFormatter`](#useByteFormatter)
 -  [`useConnectivityStatus`](#useconnectivitystatus)
+-  [`useCreateActivityRenderer`](#usecreateactivityrenderer)
+-  [`useCreateActivityStatusRenderer`](#usecreateactivitystatusrenderer)
+-  [`useCreateAttachmentForScreenReaderRenderer`](#useCreateAttachmentForScreenReaderRenderer)
+-  [`useCreateAttachmentRenderer`](#usecreateattachmentrenderer)
+-  [`useCreateAvatarRenderer`](#usecreateavatarrenderer)
 -  [`useDateFormatter`](#useDateFormatter)
 -  [`useDebouncedNotification`](#usedebouncednotification)
+-  [`useDictateAbortable`](#usedictateabortable)
 -  [`useDictateInterims`](#usedictateinterims)
 -  [`useDictateState`](#usedictatestate)
 -  [`useDirection`](#useDirection)
 -  [`useDisabled`](#usedisabled)
 -  [`useDismissNotification`](#usedismissnotification)
 -  [`useEmitTypingIndicator`](#useemittypingindicator)
+-  [`useFocus`](#usefocus)
 -  [`useFocusSendBox`](#usefocussendbox)
+-  [`useGetSendTimeoutForActivity`](#usegetsendtimeoutforactivity)
 -  [`useGrammars`](#usegrammars)
 -  [`useGroupTimestamp`](#usegrouptimestamp)
 -  [`useLanguage`](#uselanguage)
 -  [`useLastTypingAt`](#uselasttypingat)
+-  [`useLastTypingAt`](#uselasttypingat) (Deprecated)
 -  [`useLocalize`](#uselocalize) (Deprecated)
 -  [`useLocalizer`](#useLocalizer)
--  [`useLastTypingAt`](#uselasttypingat) (Deprecated)
 -  [`useMarkActivityAsSpoken`](#usemarkactivityasspoken)
 -  [`useNotification`](#usenotification)
+-  [`useObserveScrollPosition`](#useobservescrollposition)
+-  [`useObserveTranscriptFocus`](#useobservetranscriptfocus)
 -  [`usePerformCardAction`](#useperformcardaction)
 -  [`usePostActivity`](#usepostactivity)
 -  [`useReferenceGrammarID`](#usereferencegrammarid)
 -  [`useRelativeTimeFormatter`](#useRelativeTimeFormatter)
--  [`useRenderActivity`](#userenderactivity)
--  [`useRenderActivityStatus`](#userenderactivitystatus)
+-  [`useRenderActivity`](#userenderactivity) (Deprecated)
+-  [`useRenderActivityStatus`](#userenderactivitystatus) (Deprecated)
 -  [`useRenderAttachment`](#userenderattachment)
+-  [`useRenderAvatar`](#userenderavatar) (Deprecated)
 -  [`useRenderMarkdownAsHTML`](#userendermarkdownashtml)
 -  [`useRenderToast`](#userendertoast)
 -  [`useRenderTypingIndicator`](#userendertypingindicator)
+-  [`useScrollDown`](#usescrolldown)
+-  [`useScrollTo`](#usescrollto)
 -  [`useScrollToEnd`](#usescrolltoend)
+-  [`useScrollUp`](#usescrollup)
 -  [`useSendBoxValue`](#usesendboxvalue)
 -  [`useSendEvent`](#usesendevent)
 -  [`useSendFiles`](#usesendfiles)
 -  [`useSendMessage`](#usesendmessage)
 -  [`useSendMessageBack`](#usesendmessageback)
 -  [`useSendPostBack`](#usesendpostback)
--  [`useSendTimeoutForActivity`](#usesendtimeoutforactivity)
+-  [`useSendTimeoutForActivity`](#usesendtimeoutforactivity) (Deprecated)
 -  [`useSendTypingIndicator`](#usesendtypingindicator)
 -  [`useSetNotification`](#usesetnotification)
 -  [`useShouldSpeakIncomingActivity`](#useshouldspeakincomingactivity)
@@ -129,7 +143,7 @@ useActiveTyping(expireAfter?: number): [{ [id: string]: Typing }]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a list of participants who are actively typing, including the start typing time (`at`) and expiration time (`expireAt`), the name and the role of the participant.
+This hook will return a list of participants who are actively typing, including the start typing time (`at`) and expiration time (`expireAt`), the name and the role of the participant.
 
 If the participant sends a message after the typing activity, the participant will be explicitly removed from the list. If no messages or typing activities are received, the participant is considered inactive and not listed in the result. To keep the typing indicator active, participants should continuously send the typing activity.
 
@@ -145,7 +159,7 @@ useActivities(): [Activity[]]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a list of activities.
+This hook will return a list of activities.
 
 ## `useAdaptiveCardsHostConfig`
 
@@ -182,7 +196,7 @@ useAvatarForBot(): [{
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the image and initials of the bot. Both image and initials are optional and can be falsy.
+This hook will return the image and initials of the bot. Both image and initials are optional and can be falsy.
 
 To set the avatar for the bot, change the props passed to Web Chat via style options.
 
@@ -197,7 +211,7 @@ useAvatarForUser(): [{
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the image and initials of the user. Both image and initials are optional and can be falsy.
+This hook will return the image and initials of the user. Both image and initials are optional and can be falsy.
 
 To set the avatar for the user, change the props passed to Web Chat via style options.
 
@@ -211,7 +225,7 @@ useByteFormatter() => (bytes: number) => string
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that, when called with a file size, will return a localized representation of the size in bytes, kilobytes, megabytes, or gigabytes. It honors the language settings from the `useLanguage` hook.
+This hook will return a function that, when called with a file size, will return a localized representation of the size in bytes, kilobytes, megabytes, or gigabytes. It honors the language settings from the `useLanguage` hook.
 
 ## `useConnectivityStatus`
 
@@ -221,7 +235,7 @@ useConnectivityStatus(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the Direct Line connectivity status:
+This hook will return the Direct Line connectivity status:
 
 -  `connected`: Connected
 -  `connectingslow`: Connecting is incomplete and more than 15 seconds have passed
@@ -231,6 +245,111 @@ This function will return the Direct Line connectivity status:
 -  `reconnecting`: Reconnecting after interruption
 -  `sagaerror`: Errors on JavaScript renderer; please see the browser's console
 -  `uninitialized`: Initial connectivity state; never connected and not attempting to connect.
+
+## `useCreateActivityRenderer`
+
+<!-- prettier-ignore-start -->
+```js
+useCreateActivityRenderer(): ({
+  activity: Activity
+}) =>
+  (
+    false |
+    ({
+      hideTimestamp: boolean,
+      renderActivityStatus: false | () => React.Element,
+      renderAvatar: false | () => React.Element,
+      showCallout: boolean
+    }) => React.Element
+  )
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will return a function to render the specified activity.
+
+If a render function is returned, calling the function must return visualization of the activity. The visualization may vary based on the activity status, avatar, and bubble nub (a.k.a. callout).
+
+If the activity middleware wants to hide the activity, it must return `false` instead of a render function. The middleware should not return a render function that, when called, will return `false`.
+
+For `renderActivityStatus` and `renderAvatar`, it could be one of the followings:
+
+-  `false`: Do not render activity status or avatar.
+-  `() => React.Element`: Render activity status or avatar by calling this function.
+
+If `showCallout` is truthy, the activity should render the bubble nub and an avatar. The activity should call [`useStyleOptions`](#usestyleoptions) to get the styling for the bubble nub, including but not limited to: fill and outline color, offset from top/bottom, size.
+
+If `showCallout` is falsy but `renderAvatar` is truthy, the activity should not render the avatar, but leave a space for the avatar to keep aligned with other activities.
+
+## `useCreateActivityStatusRenderer`
+
+<!-- prettier-ignore-start -->
+```js
+useCreateActivityStatusRenderer(): ({
+  activity: Activity,
+  sendState: 'sending' | 'send failed' | 'sent'
+}) =>
+  (
+    false |
+    ({
+      hideTimestamp: boolean
+    }) => React.Element
+  )
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will return a function to render the activity status for the specified activity. Activity status could be a timestamp or a retry prompt.
+
+When `hideTimestamp` is set to `true`, the activity status middleware should hide if it is rendering a timestamp for the activity. Although the timestamp is hidden, activity status should consider rendering accessible counterpart.
+
+## `useCreateAttachmentForScreenReaderRenderer`
+
+<!-- prettier-ignore-start -->
+```js
+useCreateAttachmentForScreenReaderRenderer(): ({
+  activity: Activity,
+  attachment: Attachment
+}) =>
+  (
+    false |
+    () => React.Element
+  )
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called with activity and attachment, will either return a function to render the attachment used by screen reader, or `false` if the attachment should not be rendered.
+
+## `useCreateAttachmentRenderer`
+
+<!-- prettier-ignore-start -->
+```js
+useCreateAttachmentRenderer(): ({
+  activity: Activity,
+  attachment: Attachment
+}) =>
+  (
+    false |
+    () => React.Element
+  )
+```
+<!-- prettier-ignore-end -->
+
+([PXX] TBD)
+
+## `useCreateAvatarRenderer`
+
+<!-- prettier-ignore-start -->
+```js
+useCreateAvatarRenderer(): ({
+  activity: Activity
+}) =>
+  (
+    false |
+    () => React.Element
+  )
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will return a function to render the avatar for the specified activity.
 
 ## `useDateFormatter`
 
@@ -242,7 +361,7 @@ useDateFormatter() => (dateOrString: (Date | number | string)) => string
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that, when called with a `Date` object, `number`, or `string`, will return a localized representation of the date in absolute time. It honors the language settings from the `useLanguage` hook.
+This hook will return a function that, when called with a `Date` object, `number`, or `string`, will return a localized representation of the date in absolute time. It honors the language settings from the `useLanguage` hook.
 
 ## `useDebouncedNotification`
 
@@ -265,6 +384,16 @@ Due to debouncing, notifications retrieved using this hook may not be current. A
 
 For the debounce behavior, please read our [article regarding notification system](https://github.com/microsoft/BotFramework-WebChat/tree/master/docs/NOTIFICATION.md).
 
+## `useDictateAbortable`
+
+<!-- prettier-ignore-start -->
+```js
+useDictateAbortable(): [boolean]
+```
+<!-- prettier-ignore-end -->
+
+When called, this hook will return `true` if the current dictation is abortable, otherwise, `false`.
+
 ## `useDictateInterims`
 
 <!-- prettier-ignore-start -->
@@ -273,7 +402,7 @@ useDictateInterims(): [string[][]]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return active interims processed from a dictation event.
+This hook will return active interims processed from a dictation event.
 
 The first array represents separate sentences while the second array represents potential ambiguities or alternatives for the same sentence.
 
@@ -285,7 +414,7 @@ useDictateState(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return one of the following dictation states:
+This hook will return one of the following dictation states:
 
 -  `IDLE`: Recognition engine is idle; not recognizing
 -  `WILL_START`: Will start recognition after synthesis completed
@@ -305,7 +434,7 @@ useDirection(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return one of two language directions:
+This hook will return one of two language directions:
 
 -  `ltr` or otherwise: Web Chat UI will display as left-to-right
 -  `rtl`: Web Chat UI will display as right-to-left
@@ -322,7 +451,7 @@ useDisabled(): [boolean]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return whether the UI should be disabled or not. All interactable UI components should honor this value.
+This hook will return whether the UI should be disabled or not. All interactable UI components should honor this value.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -346,6 +475,24 @@ useEmitTypingIndicator(): () => void
 
 When called, this function will send a typing activity from the user to the bot.
 
+## `useFocus`
+
+<!-- prettier-ignore-start -->
+```js
+useFocus(): (where?: 'main' | 'sendBox' | 'sendBoxWithoutKeyboard') => void
+```
+<!-- prettier-ignore-end -->
+
+When called, This hook will return a function that can be called to set the focus to various parts of Web Chat.
+
+Please use this function with cautions. When changing focus programmatically, user may lose focus on what they were working on. Also, this may affect accessibility.
+
+-  `main` will focus on transcript.
+   -  We do not provide any visual cues when focusing on transcript, this may affect accessibility and usability, please use with cautions.
+-  `sendBox` will focus on send box.
+   -  This will activate the virtual keyboard if your device have one.
+-  `sendBoxWithoutKeyboard` will focus on send box, without activating the virtual keyboard.
+
 ## `useFocusSendBox`
 
 <!-- prettier-ignore-start -->
@@ -354,7 +501,19 @@ useFocusSendBox(): () => void
 ```
 <!-- prettier-ignore-end -->
 
+> This function is deprecated. Developers should migrate to [`useFocus`](#usefocus).
+
 When called, this function will send focus to the send box.
+
+## `useGetSendTimeoutForActivity`
+
+<!-- prettier-ignore-start -->
+```js
+useGetSendTimeoutForActivity(): ({ activity: Activity }) => number
+```
+<!-- prettier-ignore-end -->
+
+When called, This hook will return a function to evaluate the timeout (in milliseconds) for sending a specific activity.
 
 ## `useGrammars`
 
@@ -364,7 +523,7 @@ useGrammars(): [string[]]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return grammars for speech-to-text. Grammars is a list of words provided by the implementer for the speech-to-text engine to bias towards. It is commonly used for selecting the correct words with same or similar pronunciations, e.g. Bellevue vs. Bellview vs. Bellvue.
+This hook will return grammars for speech-to-text. Grammars is a list of words provided by the implementer for the speech-to-text engine to bias towards. It is commonly used for selecting the correct words with same or similar pronunciations, e.g. Bellevue vs. Bellview vs. Bellvue.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -376,7 +535,7 @@ useGroupTimestamp(): [number]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the interval for grouping similar activities with a single timestamp. The interval is represented in milliseconds.
+This hook will return the interval for grouping similar activities with a single timestamp. The interval is represented in milliseconds.
 
 For example, if this value is `5000`, successive activities within 5 seconds will share the timestamp of the first message.
 
@@ -392,11 +551,11 @@ useLanguage(options?: LanguageOptions): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the language of the UI. All UI components should honor this value.
+This hook will return the language of the UI. All UI components should honor this value.
 
 If no options are passed, the return value will be the written language. This value should be the same as `props.locale` passed to `<ReactWebChat>` or `<Composer>`.
 
-If `"speech"` is passed to `options`, the return value will be the oral language instead of written language. For example, the written language for Hong Kong and Taiwan are Traditional Chinese, while the oral language are Cantonese and Taiwanese Mandarin respectively.
+If `"speech"` is passed to `options`, the return value will be the oral language instead of written language. For example, the written language for Hong Kong SAR and Taiwan are Traditional Chinese, while the oral language are Cantonese and Taiwanese Mandarin respectively.
 
 To modify this value, change the value in the `locale` prop passed to Web Chat.
 
@@ -410,7 +569,7 @@ useLastTypingAt(): [{
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a map of the last typing time of all participants. The time is based on the client clock.
+This hook will return a map of the last typing time of all participants. The time is based on the client clock.
 
 This property is computed on every incoming activity.
 
@@ -422,9 +581,9 @@ useLocalize(identifier: string) => string
 ```
 <!-- prettier-ignore-end -->
 
-> This function is deprecated. Developers should migrate to [`useLocalizer`](#useLocalizer).
+> This function is deprecated. Developers should migrate to [`useLocalizer`](#uselocalizer).
 
-This function will return a localized string represented by the identifier. It honors the language settings from the `useLanguage` hook.
+This hook will return a localized string represented by the identifier. It honors the language settings from the `useLanguage` hook.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -516,6 +675,55 @@ useNotifications(): [Notification[]]
 
 When called, this hook will return an array of notifications.
 
+## `useObserveScrollPosition`
+
+<!-- prettier-ignore-start -->
+```js
+useObserveScrollPosition(observer: (ScrollObserver? | false), deps: any[]): void
+
+type ScrollObserver = (position: ScrollPosition) => void;
+
+type ScrollPosition {
+  activityID: string;
+  scrollTop: number;
+}
+```
+<!-- prettier-ignore-end -->
+
+This function accept an observer function. When the scroll position has changed, the observer function will be called with the latest `ScrollPosition`.
+
+The `position` argument can be passed to [`useScrollTo`](#usescrollto) hook to restore scroll position.
+
+Since the observer function will be called rapidly, please keep the code in the function as lightweight as possible.
+
+To stop observing scroll positions, pass a falsy value to the `observer` argument.
+
+> If there is more than one transcripts, scrolling any of them will trigger the observer function, and there is no clear distinction of which transcript is being scrolled.
+
+## `useObserveTranscriptFocus`
+
+<!-- prettier-ignore-start -->
+```js
+useObserveTranscriptFocus(observer: (TranscriptFocusObserver? | false), deps: any[]): void
+
+type TranscriptFocusObserver = (transcriptFocus: TranscriptFocus) => void;
+
+type TranscriptFocus {
+  activity: Activity;
+}
+```
+<!-- prettier-ignore-end -->
+
+This function accepts an observer function. When the focus inside transcript has changed, the observer function will be called with the latest `TranscriptFocus`.
+
+Initially, when the transcript is initialized, it will call the observer function with `activity` of `undefined`. It will also be called with `undefined` when the transcript has changed and the focus need to be reset.
+
+Since the observer function will be called rapidly, please keep the code in the function as lightweight as possible.
+
+To stop observing scroll positions, pass a falsy value to the `observer` argument.
+
+> If there is more than one transcripts, any of them will trigger the observer function, and there is no clear distinction of which transcript the focus has changed.
+
 ## `usePerformCardAction`
 
 <!-- prettier-ignore-start -->
@@ -557,7 +765,7 @@ useReferenceGrammarId(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-When called, this function will return the reference grammar ID used to improve speech-to-text performance when used with Cognitive Services.
+When called, This hook will return the reference grammar ID used to improve speech-to-text performance when used with Cognitive Services.
 
 This value is not controllable and is passed to Web Chat from the Direct Line channel.
 
@@ -571,7 +779,7 @@ useRelativeTimeFormatter() => (dateOrString: (Date | number | string)) => string
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that, when called with a `Date` object, `number`, or `string`, will return a localized representation of the date in relative time, e.g. "2 minutes ago". It honors the language settings from the `useLanguage` hook.
+This hook will return a function that, when called with a `Date` object, `number`, or `string`, will return a localized representation of the date in relative time, e.g. "2 minutes ago". It honors the language settings from the `useLanguage` hook.
 
 ## `useRenderActivity`
 
@@ -589,7 +797,9 @@ useRenderActivity(
 ```
 <!-- prettier-ignore-end -->
 
-This function is for rendering an activity and its attachments inside a React element. Because of the parent-child relationship, the caller will need to pass a render function in order for the attachment to create a render function for the activity. When rendering the activity, the caller will need to pass `activity` and `nextVisibleActivity`. This function is a composition of `activityRendererMiddleware`, which is passed as a prop.
+> This function is deprecated. Developers should migrate to [`useCreateActivityRenderer`](#usecreateactivityrenderer).
+
+This function is for rendering an activity and its attachments inside a React element. Because of the parent-child relationship, the caller will need to pass a render function in order for the attachment to create a render function for the activity. When rendering the activity, the caller will need to pass `activity` and `nextVisibleActivity`. This function is a composition of `activityRendererMiddleware`, which is passed as a prop to `<ReactWebChat>` or `<Composer>`.
 
 Note that not all activities are rendered, e.g. the event activity. Because of this, those activities will not be rendered. The `nextVisibleActivity` is the pointer to the next visible activity and is intended for the activity status renderer on grouping timestamps for adjacent activities.
 
@@ -603,14 +813,16 @@ Today, we pass `activity` and `nextVisibleActivity` to the middleware, so the `a
 
 <!-- prettier-ignore-start -->
 ```js
-useRenderActivityStatus(): ({
+useRenderActivityStatus({
   activity: Activity,
   nextVisibleActivity: Activity
 }) => React.Element
 ```
 <!-- prettier-ignore-end -->
 
-This function is for rendering the status of an activity. The caller will need to pass `activity` and `nextVisibleActivity` as parameters. This function is a composition of `activityStatusRendererMiddleware`, which is passed as a prop.
+> This function is deprecated. Developers should migrate to [`useCreateActivityStatusRenderer`](#usecreateactivitystatusrenderer).
+
+This function is for rendering the status of an activity. The caller will need to pass `activity` and `nextVisibleActivity` as parameters. This function is a composition of `activityStatusRendererMiddleware`, which is passed as a prop to `<ReactWebChat>`ord `<Composer>`.
 
 ## `useRenderAttachment`
 
@@ -623,13 +835,30 @@ useRenderAttachment(): ({
 ```
 <!-- prettier-ignore-end -->
 
-This function is for rendering an attachments inside a React element. The caller will need to pass `activity` and `attachment` as parameters. This function is a composition of `attachmentRendererMiddleware`, which is passed as a prop.
+This function is for rendering an attachments inside a React element. The caller will need to pass `activity` and `attachment` as parameters. This function is a composition of `attachmentRendererMiddleware`, which is passed as a prop to `<ReactWebChat>` or `<Composer>`.
 
 <!-- prettier-ignore-start -->
 ```js
 () => next => { activity, attachment } => next({ activity, attachment })
 ```
 <!-- prettier-ignore-end -->
+
+## `useRenderAvatar`
+
+<!-- prettier-ignore-start -->
+```js
+useRenderAvatar({
+  activity: Activity
+}) => (
+  false |
+  () => React.Element
+)
+```
+<!-- prettier-ignore-end -->
+
+> This function is deprecated. Developers should migrate to [`useCreateAvatarRenderer`](#usecreateavatarrenderer).
+
+This function is for rendering the avatar of an activity. The caller will need to pass `activity` as parameter. This function is a composition of `avatarRendererMiddleware`, which is passed as a prop to `<ReactWebChat>` or `<Composer>`.
 
 ## `useRenderMarkdownAsHTML`
 
@@ -639,7 +868,7 @@ useRenderMarkdownAsHTML(): (markdown: string): string
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that, when called, will render Markdown into an HTML string. For example,
+This hook will return a function that, when called, will render Markdown into an HTML string. For example,
 
 <!-- prettier-ignore-start -->
 ```js
@@ -666,7 +895,7 @@ useRenderToast(): ({ notification: Notification }) => React.Element
 ```
 <!-- prettier-ignore-end -->
 
-This function is for rendering a toast for the notification toaster. The caller will need to pass `notification` as parameter to the function. This function is a composition of `toastMiddleware`, which is passed as a prop to Web Chat.
+This function is for rendering a toast for the notification toaster. The caller will need to pass `notification` as parameter to the function. This function is a composition of `toastMiddleware`, which is passed as a prop to `<ReactWebChat>` or `<Composer>`.
 
 ## `useRenderTypingIndicator`
 
@@ -688,11 +917,42 @@ useRenderTypingIndicator():
 ```
 <!-- prettier-ignore-end -->
 
-This function is for rendering typing indicator for all participants of the conversation. This function is a composition of `typingIndicatorMiddleware`, which is passed as a prop to Web Chat. The caller will pass the following arguments:
+This function is for rendering typing indicator for all participants of the conversation. This function is a composition of `typingIndicatorMiddleware`, which is passed as a prop to `<ReactWebChat>` or `<Composer>`. The caller will pass the following arguments:
 
 -  `activeTyping` lists of participants who are actively typing.
 -  `typing` lists participants who did not explicitly stopped typing. This list is a superset of `activeTyping`.
 -  `visible` indicates whether typing indicator should be shown in normal case. This is based on participants in `activeTyping` and their `role` (role not equal to `"user"`).
+
+## `useScrollDown`
+
+<!-- prettier-ignore-start -->
+```js
+useScrollDown(): () => void
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will scroll elements down the transcript. This is an important feature for AT accessibility.
+
+## `useScrollTo`
+
+<!-- prettier-ignore-start -->
+```js
+useScrollTo(): (position: ScrollPosition, options: ScrollOptions) => void
+
+type ScrollOptions {
+  behavior: 'auto' | 'smooth';
+}
+
+type ScrollPosition {
+  activityID: string;
+  scrollTop: number;
+}
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will scroll the transcript to the specific scroll position. If both `activityID` and `scrollTop` is specified, `scrollTop` will be preferred since it gives higher precision.
+
+If `options` is passed with `behavior` set to `smooth`, it will smooth-scrolling to the scroll position. Otherwise, it will jump to the scroll position instantly.
 
 ## `useScrollToEnd`
 
@@ -702,7 +962,17 @@ useScrollToEnd(): () => void
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that, when called, will scroll the transcript view to the end.
+This hook will return a function that, when called, will smoothly scroll the transcript view to the end.
+
+## `useScrollUp`
+
+<!-- prettier-ignore-start -->
+```js
+useScrollUp(): () => void
+```
+<!-- prettier-ignore-end -->
+
+This hook will return a function that, when called, will scroll elements up the transcript. This is an important feature for AT accessibility.
 
 ## `useSendBoxValue`
 
@@ -712,7 +982,7 @@ useSendBoxValue(): [string, (value: string) => void]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the current value of the send box and the setter function to change the value.
+This hook will return the current value of the send box and the setter function to change the value.
 
 ## `useSendEvent`
 
@@ -773,13 +1043,15 @@ When called, this function will send a `postBack` activity to the bot.
 
 ## `useSendTimeoutForActivity`
 
+> This function is deprecated. Developers should migrate to [`useGetSendTimeoutForActivity`](#usegetsendtimeoutforactivity).
+
 <!-- prettier-ignore-start -->
 ```js
-useSendTimeoutForActivity(): (activity: Activity) => number
+useSendTimeoutForActivity(activity: Activity) => number
 ```
 <!-- prettier-ignore-end -->
 
-When called, this function will return a function to evaluate the timeout (in milliseconds) for sending a specific activity.
+When called, This hook will return a function to evaluate the timeout (in milliseconds) for sending a specific activity.
 
 ## `useSendTypingIndicator`
 
@@ -789,7 +1061,7 @@ useSendTypingIndicator(): [boolean]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return whether the typing indicator will be sent to the bot when the send box value is being modified.
+This hook will return whether the typing indicator will be sent to the bot when the send box value is being modified.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -822,7 +1094,7 @@ useShouldSpeakIncomingActivity(): [boolean, (value: boolean) => void]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a boolean and a function.
+This hook will return a boolean and a function.
 
 1. boolean: whether the next incoming activity will be queued for text-to-speech
 1. function: a setter function to control the behavior
@@ -857,9 +1129,9 @@ useStyleOptions(): [StyleOptions]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the style options. UI components should honor the styling preferences.
+This hook will return the style options. UI components should honor the styling preferences.
 
-The value is not the same as the props. Web Chat will merge the style options passed in props with default values specified in [`defaultStyleOptions.js`](https://github.com/microsoft/BotFramework-WebChat/blob/master/packages/component/src/Styles/defaultStyleOptions.js).
+The value is not the same as the props. Web Chat will merge the style options passed in props with default values specified in [`defaultStyleOptions.ts`](https://github.com/microsoft/BotFramework-WebChat/blob/master/packages/api/src/defaultStyleOptions.ts) and [`adaptiveCards/defaultStyleOptions.ts`](https://github.com/microsoft/BotFramework-WebChat/blob/master/packages/bundle/src/adaptiveCards/defaultStyleOptions.ts) when Adaptive Cards is enabled.
 
 To modify the value of `styleOptions` state, change the props you pass to Web Chat.
 
@@ -871,7 +1143,7 @@ useStyleSet(): [StyleSet]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the style set.
+This hook will return the style set.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -893,7 +1165,7 @@ useSuggestedActions(): [CardAction[], (CardAction[]) => void]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return an array and a setter function.
+This hook will return an array and a setter function.
 
 1. array: a list of suggested actions that should be shown to the user
 1. function: a setter function to clear suggested actions. The setter function can only be used to clear suggested actions, and it will accept empty array or falsy value only.
@@ -908,7 +1180,7 @@ useTimeoutForSend(): [number]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the interval of time paused before a sending activity is considered unsuccessful. The interval is represented in milliseconds. Due to network partitioning problems, activities that fail to send may eventually be successfully delivered to the bot.
+This hook will return the interval of time paused before a sending activity is considered unsuccessful. The interval is represented in milliseconds. Due to network partitioning problems, activities that fail to send may eventually be successfully delivered to the bot.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -920,7 +1192,7 @@ useUserID(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the user ID.
+This hook will return the user ID.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -932,7 +1204,7 @@ useUsername(): [string]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the username.
+This hook will return the username.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -944,7 +1216,7 @@ useVoiceSelector(activity: Activity): (voices: SpeechSynthesisVoice[]) => Speech
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a function that can be called to select the voice for a specific activity.
+This hook will return a function that can be called to select the voice for a specific activity.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -961,7 +1233,7 @@ useWebSpeechPonyfill(): [{
 ```
 <!-- prettier-ignore-end -->
 
-This function will return the ponyfill for the Web Speech API.
+This hook will return the ponyfill for the Web Speech API.
 
 To modify this value, change the value in the style options prop passed to Web Chat.
 
@@ -994,7 +1266,7 @@ useMicrophoneButtonDisabled(): () => void
 ```
 <!-- prettier-ignore-end -->
 
-This function will return whether the microphone button is disabled. This is different from `useDisabled()`. The microphone button could be disabled because it is currently starting or stopping.
+This hook will return whether the microphone button is disabled. This is different from `useDisabled()`. The microphone button could be disabled because it is currently starting or stopping.
 
 This value can be partly controllable through Web Chat props.
 
@@ -1012,7 +1284,7 @@ useSendBoxSpeechInterimsVisible(): [boolean]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return whether the send box should show speech interims.
+This hook will return whether the send box should show speech interims.
 
 ## `TextBox`
 
@@ -1025,11 +1297,11 @@ These are hooks that are specific to the text box in the send box.
 
 <!-- prettier-ignore-start -->
 ```js
-useTextBoxSubmit(): (setFocus: boolean) => void
+useTextBoxSubmit(): (setFocus: boolean | 'main' | 'sendBox' | 'sendBoxWithoutKeyboard') => void
 ```
 <!-- prettier-ignore-end -->
 
-This function will send the text box value as a message to the bot. In addition to the original `useSubmitSendBox` hook, this function will also scroll to bottom and, optionally, set focus to the send box.
+This function will send the text box value as a message to the bot. In addition to the original `useSubmitSendBox` hook, this function will also scroll to bottom and, optionally, set focus to the main transcript or send box. This function will send the text box value as a message to the bot. In addition to the original `useSubmitSendBox` hook, this function will also scroll to bottom.
 
 The focus is useful for a phone scenario where the virtual keyboard will only be shown when a text box is focused.
 
@@ -1041,7 +1313,7 @@ useTextBoxValue(): [string, (value: string) => void]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return a string and a function.
+This hook will return a string and a function.
 
 1. string: the text box value
 1. function: the setter function to set the text box value.
@@ -1062,7 +1334,7 @@ useTypingIndicatorVisible(): [boolean]
 ```
 <!-- prettier-ignore-end -->
 
-This function will return whether the typing indicator should be visible or not. This function is time-sensitive, meaning that the value will change as time passes.
+This hook will return whether the typing indicator should be visible or not. This function is time-sensitive, meaning that the value will change as time passes.
 
 This function derives the visibility of the typing indicator via values from the [`useActiveTyping`](#useactivetyping) hook. Active typing from user is ignored.
 

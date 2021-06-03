@@ -1,5 +1,5 @@
 import { Constants } from 'botframework-webchat-core';
-import { css } from 'glamor';
+import { hooks } from 'botframework-webchat-api';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -10,26 +10,25 @@ import SendButton from './SendBox/SendButton';
 import SuggestedActions from './SendBox/SuggestedActions';
 import TextBox from './SendBox/TextBox';
 import UploadButton from './SendBox/UploadButton';
-import useActivities from './hooks/useActivities';
-import useDirection from './hooks/useDirection';
-import useDictateState from './hooks/useDictateState';
-import useStyleOptions from './hooks/useStyleOptions';
 import useStyleSet from './hooks/useStyleSet';
+import useStyleToEmotionObject from './hooks/internal/useStyleToEmotionObject';
 import useWebSpeechPonyfill from './hooks/useWebSpeechPonyfill';
 
 const {
   DictateState: { DICTATING, STARTING }
 } = Constants;
 
-const ROOT_CSS = css({
-  '& > .main': {
-    display: 'flex'
-  }
-});
+const { useActivities, useDirection, useDictateState, useStyleOptions } = hooks;
 
-const DICTATION_INTERIMS_CSS = css({ flex: 10000 });
-const MICROPHONE_BUTTON_CSS = css({ flex: 1 });
-const TEXT_BOX_CSS = css({ flex: 10000 });
+const ROOT_STYLE = {
+  '&.webchat__send-box': {
+    '& .webchat__send-box__button': { flexShrink: 0 },
+    '& .webchat__send-box__dictation-interims': { flex: 10000 },
+    '& .webchat__send-box__main': { display: 'flex' },
+    '& .webchat__send-box__microphone-button': { flex: 1 },
+    '& .webchat__send-box__text-box': { flex: 10000 }
+  }
+};
 
 // TODO: [P3] We should consider exposing core/src/definitions and use it instead
 function activityIsSpeakingOrQueuedToSpeak({ channelData: { speak } = {} }) {
@@ -47,27 +46,42 @@ function useSendBoxSpeechInterimsVisible() {
 }
 
 const BasicSendBox = ({ className }) => {
-  const [{ hideUploadButton }] = useStyleOptions();
+  const [{ hideUploadButton, sendBoxButtonAlignment }] = useStyleOptions();
   const [{ sendBox: sendBoxStyleSet }] = useStyleSet();
   const [{ SpeechRecognition } = {}] = useWebSpeechPonyfill();
   const [direction] = useDirection();
   const [speechInterimsVisible] = useSendBoxSpeechInterimsVisible();
+  const styleToEmotionObject = useStyleToEmotionObject();
+
+  const rootClassName = styleToEmotionObject(ROOT_STYLE) + '';
 
   const supportSpeechRecognition = !!SpeechRecognition;
 
+  const buttonClassName = classNames('webchat__send-box__button', {
+    'webchat__send-box__button--align-bottom': sendBoxButtonAlignment === 'bottom',
+    'webchat__send-box__button--align-stretch': sendBoxButtonAlignment !== 'bottom' && sendBoxButtonAlignment !== 'top',
+    'webchat__send-box__button--align-top': sendBoxButtonAlignment === 'top'
+  });
+
   return (
-    <div className={classNames(sendBoxStyleSet + '', ROOT_CSS + '', className + '')} dir={direction} role="form">
+    <div
+      className={classNames('webchat__send-box', sendBoxStyleSet + '', rootClassName + '', (className || '') + '')}
+      dir={direction}
+      role="form"
+    >
       <SuggestedActions />
-      <div className="main">
-        {!hideUploadButton && <UploadButton />}
+      <div className="webchat__send-box__main">
+        {!hideUploadButton && <UploadButton className={buttonClassName} />}
         {speechInterimsVisible ? (
-          <DictationInterims className={DICTATION_INTERIMS_CSS + ''} />
+          <DictationInterims className="webchat__send-box__dictation-interims" />
         ) : (
-          <TextBox className={TEXT_BOX_CSS + ''} />
+          <TextBox className="webchat__send-box__text-box" />
         )}
-        <div>
-          {supportSpeechRecognition ? <MicrophoneButton className={MICROPHONE_BUTTON_CSS + ''} /> : <SendButton />}
-        </div>
+        {supportSpeechRecognition ? (
+          <MicrophoneButton className={classNames(buttonClassName, 'webchat__send-box__microphone-button')} />
+        ) : (
+          <SendButton className={buttonClassName} />
+        )}
       </div>
     </div>
   );

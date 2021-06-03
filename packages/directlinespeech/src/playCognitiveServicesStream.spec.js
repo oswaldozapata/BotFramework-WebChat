@@ -62,26 +62,18 @@ function createMockAudioContext(autoEndCount = Infinity) {
   return audioContext;
 }
 
-function createStreamReader(chunks) {
+function createStreamFromChunks(format, chunks) {
   return {
-    read() {
+    format,
+    read(destination) {
       const chunk = chunks.shift();
 
       if (chunk) {
-        return {
-          on(resolve) {
-            resolve({
-              buffer: chunk,
-              isEnd: false
-            });
-          }
-        };
+        new Uint8Array(destination).set(new Uint8Array(chunk));
+
+        return Promise.resolve(chunk.byteLength);
       } else {
-        return {
-          on(resolve) {
-            resolve({ isEnd: true });
-          }
-        };
+        return Promise.resolve(0);
       }
     }
   };
@@ -93,12 +85,14 @@ test('should play 16-bit chunked stream to AudioContext', async () => {
 
   await playCognitiveServicesStream(
     audioContext,
-    {
-      bitsPerSample: 16,
-      channels: 1,
-      samplesPerSec: 16000
-    },
-    createStreamReader(chunks)
+    createStreamFromChunks(
+      {
+        bitsPerSample: 16,
+        channels: 1,
+        samplesPerSec: 16000
+      },
+      chunks
+    )
   );
 
   const nodes = audioContext.connectedNodes.map(bufferSource => {
@@ -158,12 +152,14 @@ test('should stop when abort is called after all buffer queued', async () => {
 
   const promise = playCognitiveServicesStream(
     audioContext,
-    {
-      bitsPerSample: 16,
-      channels: 1,
-      samplesPerSec: 16000
-    },
-    createStreamReader(chunks),
+    createStreamFromChunks(
+      {
+        bitsPerSample: 16,
+        channels: 1,
+        samplesPerSec: 16000
+      },
+      chunks
+    ),
     { signal: abortController.signal }
   );
 
@@ -177,18 +173,18 @@ test('should stop when abort is called after all buffer queued', async () => {
 test('should stop when abort is called before first buffer is queued', async () => {
   const audioContext = createMockAudioContext();
   const abortController = new AbortController();
-  const read = jest.fn(() => ({
-    on() {}
-  }));
+  const read = jest.fn(() => new Promise(() => {}));
 
   const playPromise = playCognitiveServicesStream(
     audioContext,
     {
-      bitsPerSample: 16,
-      channels: 1,
-      samplesPerSec: 16000
+      format: {
+        bitsPerSample: 16,
+        channels: 1,
+        samplesPerSec: 16000
+      },
+      read
     },
-    { read },
     { signal: abortController.signal }
   );
 

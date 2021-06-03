@@ -4,6 +4,7 @@ env:
   jest: true
 extends:
 - eslint:recommended
+- plugin:node/recommended-module
 globals:
   React: readonly
 parserOptions:
@@ -117,15 +118,15 @@ rules:
     varsIgnorePattern: ^_
   no-use-before-define: error
 
-  # Group - Node.js and CommonJS
-  callback-return: error
-  global-require: error
-  handle-callback-err: error
-  no-buffer-constructor: error
-  no-mixed-requires: error
-  no-new-require: error
-  no-path-concat: error
-  no-sync: error
+  # Group - Node.js and CommonJS eslint-plugin-node
+  node/callback-return: error
+  node/global-require: error
+  node/handle-callback-err: error
+  node/no-mixed-requires: error
+  node/no-new-require: error
+  node/no-path-concat: error
+  node/no-sync: error
+  node/prefer-global/buffer: error
 
   # Group - ECMAScript 6
   arrow-body-style:
